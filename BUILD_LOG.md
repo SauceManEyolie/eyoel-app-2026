@@ -344,3 +344,22 @@
 `npm run validate`: **passed** (15 test files, 180 tests). `eslint src tests vite.config.ts`: clean.
 
 **To pick up the fix:** stop the dev server, start it again (`npm run dev`), then reload the page once.
+
+## 2026-11-24 — Verified by you in the running app
+
+You tested with two accounts: your normal browser window and a private window.
+
+**Worked**
+- Create crew, join with a code, and the crew list updating live.
+- Items: adding, the list updating live in the other window, and editing/deleting only your own items.
+- Crunch week view: totals update live.
+- Break it down: clicked once, and it worked.
+- The 404 on crew links went away after the vite config fix.
+- Browser console checks against `/api/integrations/anthropic/...` and `/api/integrations/openai/...` both returned 403 **locally**.
+
+**Observation**
+- As the app owner (an admin), you see crews you're not a member of, while the other account does not. This is the admin read-all permission, by design.
+
+**Not tested**
+- The Playwright tests: none were run.
+- The deployed site, including the `/api/integrations/...` console checks there.
