@@ -27,6 +27,7 @@ import { useCrew } from '@/components/crews/useCrew'
 import { ItemForm } from '@/components/items/ItemForm'
 import { callAction } from '@/lib/call-action'
 import { formatDueDate } from '@/lib/dates'
+import { crunchPath } from '@/lib/paths'
 import type { ItemInput, ItemType } from '@/lib/item-validation'
 import { AI_DAILY_CAP, utcDay } from '@/lib/usage-limits'
 import type { BreakDownResult } from '@/actions/break-down'
@@ -99,7 +100,7 @@ function CrewItems({ crewId, crewName }: { crewId: string; crewName: string }) {
         <div className="mt-1 flex flex-wrap items-baseline justify-between gap-2">
           <h1 className="text-2xl font-semibold tracking-tight">{crewName}</h1>
           <Link
-            to={`/crews/${crewId}/crunch`}
+            to={crunchPath(crewId)}
             className="text-sm font-medium underline-offset-4 hover:underline"
           >
             Crunch week →

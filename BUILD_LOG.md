@@ -308,3 +308,39 @@
 - If we ever use Google sign-in for Gmail/Calendar, `status` and `oauth/<provider>/disconnect` would need allowlisting.
 
 **Playwright:** still none run. The scaffold's `collab.spec.ts` "API status page" tests mock the catalog in the browser, so they're unaffected.
+
+## 2026-11-24 — Bug: crew link from /home showed the 404 page (NOT committed yet)
+
+**What you saw:** clicking a crew on `/home` went to `/crews/e7691209-…` and showed the app's own 404 page (`[...all].tsx`), with the dev server still running.
+
+**Diagnosis**
+- **Generated types (`src/router.ts`, gitignored):** it lists `/crews/:id` and `/crews/:id/crunch`. It was regenerated at 22:50, after the page move.
+- **Files:** `crews/[id]/index.tsx` and `crews/[id]/crunch.tsx` only. There's no leftover `crews/[id].tsx`.
+- **Routes:** I rebuilt the browser's route table with generouted's own code from the real files, and asked react-router's own `matchRoutes`. `/crews/<id>` → crew page, and `/crews/<id>/crunch` → crunch page. So the files and routes are correct.
+- **Cause:**
+  - The browser's routes don't come from `src/router.ts`. They come from `@generouted/react-router/lazy`, which scans `src/pages` live (`import.meta.glob`).
+  - Vite had **pre-bundled** that package into `node_modules/.vite/deps/` at 18:58, before any crew pages existed.
+  - Vite serves pre-bundled packages with `Cache-Control: max-age=31536000,immutable` (`node_modules/vite/dist/node/chunks/node.js:20339`). The browser keeps that copy and never asks again, even on reload.
+  - So the browser kept a route list from before the crew pages. Generouted's plugin does notice new pages, but only to regenerate the types file (`plugin/index.js:119–123`).
+- **Confidence:** this mechanism matches everything above. I couldn't run the dev server to watch it happen, because it rewrites `.dev.vars`.
+  - Your own check: in DevTools → Network, find `@generouted_react-router_lazy.js?v=…`. If it says "(disk cache)" or "(memory cache)", that's the stale copy.
+- **Crunch page:** `/crews/<id>/crunch` would have 404'd the same way. In the files and route table it matches correctly.
+
+**Fix (smallest)**
+- `vite.config.ts`: `optimizeDeps.exclude: ['@generouted/react-router', '@generouted/react-router/lazy']`. Generouted is now served like app code, which the browser re-checks (`no-cache`). This only affects the dev server; `vite build` ignores `optimizeDeps`.
+- `src/lib/paths.ts`: `crewPath(id)` and `crunchPath(id)`. The three hand-written crew links now use them, so the test checks the same links the pages build.
+
+**Test**
+- `src/routes.test.ts` rebuilds the browser's route table the way generouted does at runtime, from the real page files, and checks:
+  - the `/home` crew link opens the crew page, not the 404;
+  - the Crunch week link opens the crunch page;
+  - `/home` and the 404 still work;
+  - there's no stale `crews/[id].tsx`;
+  - `vite.config.ts` keeps the exclude.
+- **Checked that it can fail:** with `crews/[id]/index.tsx` temporarily moved away, the crew-link test failed. After restoring it, all pass.
+- **Limit:** this test can't catch a browser holding a stale cached copy (that needs a running server). It guards the config line that prevents it.
+- **Side finding:** a bare `/crews` (no id) renders a blank page, not the 404, because it matches an empty folder route. Nothing links there. Not changed.
+
+`npm run validate`: **passed** (15 test files, 180 tests). `eslint src tests vite.config.ts`: clean.
+
+**To pick up the fix:** stop the dev server, start it again (`npm run dev`), then reload the page once.

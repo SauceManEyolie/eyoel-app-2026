@@ -63,5 +63,12 @@ export default defineConfig({
     // ai, which import deepspace/worker — are not dragged into the client optimizer.
     // Dev-only; `vite build` ignores optimizeDeps.
     entries: ['./index.html', './src/pages/**/*.tsx'],
+    // Crunch Board: never pre-bundle generouted. Its runtime module holds the
+    // `import.meta.glob` page scan, and Vite serves pre-bundled deps with
+    // `Cache-Control: max-age=31536000,immutable`, so after adding or moving a
+    // page the browser kept its old cached copy and new routes 404'd until a
+    // hard reload. Served as plain source, it's re-checked like app code.
+    // (Both entries: Vite matches excludes per import specifier.)
+    exclude: ['@generouted/react-router', '@generouted/react-router/lazy'],
   },
 })

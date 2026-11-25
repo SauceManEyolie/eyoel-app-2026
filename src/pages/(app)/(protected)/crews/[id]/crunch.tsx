@@ -15,6 +15,7 @@ import { useCrew } from '@/components/crews/useCrew'
 import { assignSeries, WeekBars } from '@/components/crunch/WeekBars'
 import { buildCrunchWeeks, CRUNCH_WEEKS, HEAVY_WEEK_HOURS_PER_MEMBER } from '@/lib/crunch'
 import { todayDateOnly, weekStart } from '@/lib/dates'
+import { crewPath } from '@/lib/paths'
 import type { ItemInput } from '@/lib/item-validation'
 
 type Item = ItemInput & { crewId: string }
@@ -79,7 +80,7 @@ function CrunchView({ crewId, crewName }: { crewId: string; crewName: string }) 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8">
       <header>
-        <Link to={`/crews/${crewId}`} className="text-sm text-muted-foreground hover:underline">
+        <Link to={crewPath(crewId)} className="text-sm text-muted-foreground hover:underline">
           ← {crewName}
         </Link>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Crunch week</h1>

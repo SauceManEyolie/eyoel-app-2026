@@ -15,6 +15,7 @@ import { Badge, Button, EmptyState, Input, Label, useToast } from '@/components/
 import { callAction } from '@/lib/call-action'
 import { formatInviteCode, normalizeInviteCode } from '@/lib/invite-code'
 import { CREW_NAME_MAX } from '@/schemas/crews-schema'
+import { crewPath } from '@/lib/paths'
 
 interface Crew {
   crewId: string
@@ -104,7 +105,7 @@ function CrewList() {
             >
               <div className="min-w-0">
                 <Link
-                  to={`/crews/${crew.data.crewId}`}
+                  to={crewPath(crew.data.crewId)}
                   className="block truncate font-medium underline-offset-4 hover:underline"
                 >
                   {crew.data.name}
