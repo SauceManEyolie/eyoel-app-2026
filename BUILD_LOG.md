@@ -2,6 +2,21 @@
 
 > This log was written by Claude Code. Only the sections titled 'Verified by you' record what I tested myself. Other claims, such as test counts, SDK line numbers and cost estimates, are agent-reported and were not independently verified by me.
 
+- **Live app:** https://eyoel-build-2026.app.space (built from `name = "eyoel-build-2026"` in `wrangler.toml`)
+- **GitHub repo:** https://github.com/SauceManEyolie/eyoel-app-2026 (`origin` in `git remote -v`)
+
+**Contents**
+- [Current status](#current-status)
+- [Who did what](#who-did-what)
+- [Main tradeoff](#main-tradeoff)
+- [Other decisions](#other-decisions)
+- [Known issues and notes](#known-issues-and-notes)
+- [How to run](#how-to-run)
+- [Step-by-step history](#step-by-step-history)
+- [Verified by you in the running app](#2026-11-24--verified-by-you-in-the-running-app)
+- [Verified by you on the deployed site](#verified-by-you-on-the-deployed-site)
+- [Appendix A: integrations info output](#appendix-a-integrations-info-output)
+
 ## Current status
 
 **What the app does.** Crunch Board lets study groups ("crews") join with an invite code and post assignments and exams with a course, due date, type and estimated hours. It shows a live crunch-week view of hours per week across the crew, and a "Break it down" button uses AI to turn an item into 4–6 study steps.
@@ -33,7 +48,100 @@ A dash (—) means you didn't report checking it there. The unit tests last pass
 - Per-assignee hours.
 - Closing the open `GET /api/integrations` listing.
 
+## Who did what
+
+*Reported by you.*
+
+**Claude Code**
+- Wrote the code, schemas, server actions, pages, chart, tests and these docs.
+- Found the open integration proxy and made it deny-by-default.
+- Diagnosed the routing conflict and the dev 404.
+- Implemented the join-refresh workaround.
+
+**Claude in chat** (a separate tool, not Claude Code)
+- Helped choose and scope the idea.
+- Reviewed each plan and output.
+- Wrote most of your prompts.
+- Flagged concerns: the undocumented `_rowId`, the spending exposure, and guessable invite codes.
+
+**You**
+- Chose the idea and scope, and approved or changed each plan.
+- Ran every command.
+- Tested with two real accounts, locally and on the live site.
+- Found that a newly joined crew only appeared after a reload, and chose the fix (Claude Code implemented it).
+- Found the 404 on crew links.
+- Ran the 403 checks.
+- Committed, pushed and deployed.
+  - Note from the repo: the git commits were created by Claude Code when you asked for them; each carries a `Co-Authored-By: Claude` line. Pushing and deploying were done by you.
+
+## Main tradeoff
+
+**All writes are checked in one place.**
+- Browsers can't create items (`create: false`) or edit them directly (`update: false`) in `src/schemas/items-schema.ts`.
+- Every create and edit goes through server actions (`addItem`, `updateItem` in `src/actions/items.ts`) that check membership and validate fields.
+- In the schema, `writableFields` and an `immutable` `crewId` back this up.
+
+**Why:** the database can't validate dates, hours or crew membership, and one bad value would break the crunch totals.
+
+**Cost:** more server code, no instant local edits, and delete is still a direct browser action, limited to the item's author (`delete: 'own'`).
+
+## Other decisions
+
+- **Crew privacy:** the `'team'` permission with a real `crewId` column (`teamField: 'crewId'`). We dropped the undocumented `teamField: '_rowId'` because it could change in a later SDK version.
+- **Deny-by-default integration proxy:** every browser path under `/api/integrations/` gets 403 unless allowlisted (`src/server/integration-guard.ts`; the allowlist is empty). AI is reached only through the `breakItDown` action.
+- **AI cap:** counted **before** the AI call (`reserveUsage`), with a refund (`refundUsage`) if the AI is unreachable. A reply that isn't 4–6 steps still counts.
+- **Due dates:** stored as date-only strings (`YYYY-MM-DD`), with week math done in UTC (`src/lib/dates.ts`), so no timezone shifts a deadline.
+- **Heavy week:** 15 h per active member (`HEAVY_WEEK_HOURS_PER_MEMBER`), over an 8-week window (`CRUNCH_WEEKS`).
+- **Skipped, with the reason for each:**
+  - AI chat panel (`ai-chat`): we need one fixed request per item, not a chat.
+  - Messaging: not requested.
+  - Presence: a nice extra, not needed for the requested features.
+  - File uploads: not needed.
+  - Payments: not needed.
+  - Weekly digest email / cron: out of scope for this build; listed under next steps.
+  - Kanban add-on: not requested.
+  - Items add-on: its permissions are per owner, not per crew, so it would have been rewritten.
+  - Admin page: the owner already has full access as admin.
+  - Google Calendar sync: not in the requested scope. It would need per-user Google sign-in (`google` is `billing: 'user'` in `src/integrations.ts`).
+
+## Known issues and notes
+
+**Join-refresh workaround (Fix A)**
+- **Where:** the commented `WORKAROUND` block at the top of `HomePage` in `src/pages/(app)/(protected)/home.tsx`. After a successful join, `listVersion` changes, and `<CrewList key={listVersion} />` re-subscribes.
+- **Limit:** only the tab that clicked Join refreshes.
+- **Remove when** DeepSpace fixes `notifyTeamMembershipChange`: delete `listVersion`, the `key`, and the `onJoined` prop.
+- **Bug report for DeepSpace** (agent-reported SDK details):
+  > deepspace 0.44.2: `notifyTeamMembershipChange` never fires, so `'team'` access gained via `team_members` doesn't reach open clients until reload.
+  > `server.js:4431` / `worker.js:1396` read `record.data.UserId`, but rows are keyed by column name (`userId`, which `'team'` requires), so it always returns early and no `records.resubscribe` is sent.
+  > Repro: user B has `/home` open with `useQuery('crews')` (`teamField`, `read: 'team'`), a server action inserts `team_members {teamId, userId: B, status: 'active'}`, and B never receives the crew. Expected: B's tab resubscribes and receives it.
+
+**Dev-only 404 fix (`vite.config.ts`)**
+- `optimizeDeps.exclude: ['@generouted/react-router', '@generouted/react-router/lazy']`.
+- The cause is a likely explanation (agent-reported): the browser was holding a stale, permanently cached copy of the pre-bundled route list. That's consistent with a fresh private window working, which you saw.
+- `vite build` ignores `optimizeDeps`, so deployed builds are unaffected.
+
+**Scaffold files modified**
+- `src/server/http-routes.ts`: the integration guard is mounted there.
+- Also edited from the scaffold (per git history): `CLAUDE.md` (working agreements), `vite.config.ts`, `src/integrations.ts`, `src/styles.css`, `src/actions/index.ts`, `src/schemas.ts`, `tests/api.spec.ts`, `tests/collab.spec.ts`, and `/home` (moved to `src/pages/(app)/(protected)/home.tsx`).
+
+**Tests**
+- Scaffold smoke tests that visit `/home` signed out may need updating, because `/home` now shows a sign-in panel. Not run.
+
+**Other**
+- A bare `/crews` shows a blank page; nothing links there.
+- The plain `GET /api/integrations` listing (a free list of endpoints) is still open.
+- The owner sees all crews as admin.
+
+## How to run
+
+- `npm run dev`: local dev server (Vite + worker) at http://localhost:5173. Per the DeepSpace docs (`/guides/dev-workflow`), this regenerates `.dev.vars`.
+- `npm run validate`: type-check plus unit tests.
+- `npx deepspace deploy`: deploy to https://eyoel-build-2026.app.space.
+- **Two accounts are needed for the multi-user checks:** use a normal window and a private window, signed in as different accounts.
+
 ---
+
+# Step-by-step history
 
 ## 2026-11-24 — Step 1: Working agreements + plan
 
@@ -155,7 +263,7 @@ A dash (—) means you didn't report checking it there. The unit tests last pass
 > Repro: user B has `/home` open with `useQuery('crews')` (`teamField`, `read: 'team'`), a server action inserts `team_members {teamId, userId: B, status: 'active'}`, and B never receives the crew. Expected: B's tab resubscribes and receives it.
 
 **Verify yourself**
-- The two-window check (steps in chat).
+- Two-window check (summary): A creates a crew and B joins with its code; B's crew list should show the crew without a reload, and A's should change to "2 members". This check found the join-refresh issue.
 - Try a wrong code: the message says how many tries are left.
 - Signed out, open `/home`: you should see the sign-in panel, not the crew forms.
 
@@ -202,7 +310,7 @@ A dash (—) means you didn't report checking it there. The unit tests last pass
 - `src/router.ts` is generated by the router plugin and is gitignored (`.gitignore` line 12), so it's never committed. It will gain a `/crews/:id` entry the next time you run `npm run dev`. (Corrected: an earlier note here wrongly said to commit it.)
 
 **Verify yourself**
-- The two-window check (steps in chat).
+- Two-window check (summary): both accounts open the same crew page. A adds an item; B sees it appear without a reload, with no Edit or Delete buttons on it. A edits the hours, and B sees the change live.
 - Type an impossible date or `0` hours: the form says why before sending.
 - Open `/crews/<some-other-id>`: you should see "Crew not found".
 
@@ -255,11 +363,11 @@ A dash (—) means you didn't report checking it there. The unit tests last pass
 - The current week is based on the viewer's own calendar date. Someone in a far-off timezone may briefly see a different "This week" around midnight.
 - If an author leaves the crew, their items still count. They appear after current members in the legend.
 
-**Verify yourself:** the two-window check (in chat).
+**Verify yourself:** two-window check (summary). A opens Crunch week, then B adds items due this week. A's weekly total, B's coloured segment and, past the threshold, the Heavy marker update without a reload. Moving an item's due date moves its hours to the other week, and deleting an item removes them.
 
 ## 2026-11-24 — Step 5: Break it down (committed: `de2f1e7`)
 
-**Integration check:** `npx deepspace integrations info anthropic/chat-completion` (full output in chat).
+**Integration check:** `npx deepspace integrations info anthropic/chat-completion` (full output in [Appendix A](#appendix-a-integrations-info-output)).
 - Endpoint `anthropic/chat-completion`, as planned.
 - The catalog's **default model is `claude-opus-5-5`** (expensive). Its description names `claude-haiku-5-5`, which we set explicitly.
 - Request fields: `model`, `max_tokens`, `system`, `messages`, `temperature`, as planned.
@@ -309,7 +417,7 @@ A dash (—) means you didn't report checking it there. The unit tests last pass
 - Editing an item keeps its old steps. Use Redo if they no longer fit.
 - The response shape is assumed, not confirmed (see the integration check above). If the first real click says "The AI sent an empty reply", that's the sign the shape differs. That case is refused, not refunded, so it uses one of your 10.
 
-**Verify yourself:** the two-window check (in chat). One real breakdown costs a few cents of your DeepSpace credits.
+**Verify yourself:** two-window check (summary). A clicks Break it down: every Break it down button is disabled while it runs, 4–6 steps appear, and A's "left today" count drops. B sees the same steps live. B's Redo counts against B's own cap. A browser-console `fetch` to `/api/integrations/...` returns 403. Each real breakdown spends DeepSpace credits; the exact cost was not measured.
 
 ## 2026-11-24 — Deny-by-default browser integration proxy (committed: `de2f1e7`)
 
@@ -403,3 +511,83 @@ You tested with two accounts: your normal browser window and a private window.
 
 - The console checks against `/api/integrations/anthropic/...` and `/api/integrations/openai/...` returned 403 on the live site, signed in and signed out.
 - On the live site you signed in, created a crew, added an item, and clicked Break it down once. It worked.
+
+## Appendix A: integrations info output
+
+Full output of `npx deepspace integrations info anthropic/chat-completion`, run during step 5:
+
+```
+anthropic/chat-completion
+  Generate text with a Claude model via the Anthropic Messages API. Free-tier pricing differs from paid-tier pricing. Standard pricing applies to: claude-haiku-5-5, claude-haiku-4-5.
+  billing: metered at the provider's actual cost plus platform markup; free-tier pricing differs
+
+Input schema:
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "model": {
+      "default": "claude-opus-5-5",
+      "type": "string"
+    },
+    "max_tokens": {
+      "default": 4096,
+      "type": "number",
+      "minimum": 1
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ]
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {}
+                }
+              }
+            ]
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ]
+      }
+    },
+    "system": {
+      "type": "string"
+    },
+    "temperature": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "required": [
+    "messages"
+  ]
+}
+
+Example body:
+{
+  "model": "claude-opus-5-5",
+  "max_tokens": 4096
+}
+```

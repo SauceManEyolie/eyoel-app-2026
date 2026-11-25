@@ -16,8 +16,8 @@ Updated with every step we build.
 ## Click: "Create crew" (step 2)
 
 ### 1. The button — `src/pages/(app)/(protected)/home.tsx`
-- `CreateCrewForm` keeps the typed name in `name` and a `busy` flag (lines ~105–107).
-- Pressing **Create crew** submits the form, so `onSubmit` runs (line ~109). It stops the browser's default page reload, sets `busy` to true (the button greys out and shows a spinner), and calls `callAction('createCrew', { name })` (line ~112).
+- `CreateCrewForm` keeps the typed name in `name` and a `busy` flag (lines ~136–138).
+- Pressing **Create crew** submits the form, so `onSubmit` runs (line ~141). It stops the browser's default page reload, sets `busy` to true (the button greys out and shows a spinner), and calls `callAction('createCrew', { name })` (line ~144).
 
 ### 2. Sending the request — `src/lib/call-action.ts`
 - `callAction` gets the signed-in user's token with `getAuthToken()` (line ~16).
@@ -32,7 +32,7 @@ Updated with every step we build.
   - It runs the action, passing the verified `userId` (line ~67).
 
 ### 4. The action — `src/actions/crews.ts`
-- `createCrew` hands off to `createCrewFor` (line ~87 → ~45). That function:
+- `createCrew` hands off to `createCrewFor` (line ~86 → ~45). That function:
   - checks the name isn't blank or longer than 60 characters;
   - makes **one new id** with `crypto.randomUUID()` (line ~57);
   - makes an invite code with `generateInviteCode()` from `src/lib/invite-code.ts`;
@@ -44,8 +44,8 @@ Updated with every step we build.
 - The RecordRoom checks the row against the schema in `src/schemas/crews-schema.ts`: required fields present, name ≤ 60 characters, invite code not already used (`uniqueOn`). Then it saves the row into its SQLite table.
 
 ### 6. Back to the screen, two ways at once
-- **The reply:** the action returns `{ success: true, data: { crewId, inviteCode } }`, which travels back as JSON to `callAction`, then to `onSubmit`. That shows a "Crew created" message with the code, clears the box, and sets `busy` back to false (lines ~113–118).
-- **The live list:** right after saving each row, the RecordRoom looks at every open live connection and asks "may this user read this row?" (the `'team'` rule: the creator, or an active crew member). You created it, so your tab is sent the new `crews` row, then your `team_members` row. `HomePage`'s `useQuery('crews')` and `useQuery('team_members')` (lines ~33–34) receive them, and React redraws the list: the new crew, "1 member", the **Lead** badge and the invite code. No reload, no extra request.
+- **The reply:** the action returns `{ success: true, data: { crewId, inviteCode } }`, which travels back as JSON to `callAction`, then to `onSubmit`. That shows a "Crew created" message with the code, clears the box, and sets `busy` back to false (lines ~145–150).
+- **The live list:** right after saving each row, the RecordRoom looks at every open live connection and asks "may this user read this row?" (the `'team'` rule: the creator, or an active crew member). You created it, so your tab is sent the new `crews` row, then your `team_members` row. `CrewList`'s `useQuery('crews')` and `useQuery('team_members')` (lines ~74–75, in `home.tsx`) receive them, and React redraws the list: the new crew, "1 member", the **Lead** badge and the invite code. No reload, no extra request.
 
 ### Side trip: why joining needs a "rebuild" (step 2, Fix A)
 - **The problem:** when you **join** with a code, the server only saves a new `team_members` row. The `crews` row doesn't change, so it isn't pushed to your tab. DeepSpace is meant to tell your tab to re-ask its questions, but an SDK bug stops that message (BUILD_LOG.md, "userId vs UserId — RESULT").
@@ -60,8 +60,8 @@ Updated with every step we build.
 
 ## Click: "Add item" on a crew page (step 3)
 
-### 1. The page — `src/pages/(app)/(protected)/crews/[id].tsx`
-- The `[id]` in the file name means "this part of the address is a value". Opening `/crews/abc123` runs this page, and `useParams()` gives `id = "abc123"`.
+### 1. The page — `src/pages/(app)/(protected)/crews/[id]/index.tsx`
+- The `[id]` in the folder name means "this part of the address is a value". Opening `/crews/abc123` runs this page, and `useParams()` gives `id = "abc123"`.
 - `CrewPage` asks for that crew with `useQuery('crews', { where: { crewId: id } })`. The server only sends it if you're a member. Otherwise you see "Crew not found".
 - `CrewItems` asks for the crew's items with `useQuery('items', { where: { crewId } })`. That's a live **subscription**, like the crew list on `/home`.
 
