@@ -112,7 +112,7 @@
   - It relies on `CrewList` being the only place that runs these two queries. The SDK shares identical queries, and only re-asks the server when the last user of one goes away. This is noted in a comment.
 - **Remove when** DeepSpace fixes `notifyTeamMembershipChange`: delete `listVersion`, the `key`, and the `onJoined` prop.
 - `npm run validate`: **passed** (5 test files, 34 tests). `eslint src tests`: clean.
-- **Not yet re-tested live.** Re-run the two-window check, steps 1–9. B's list should now update without a reload.
+- **Confirmed live (by you, re-running the two-window check):** after joining, window B shows the crew and "2 members" without a reload.
 
 **Bug report (to send to DeepSpace)**
 > deepspace 0.44.2: `notifyTeamMembershipChange` never fires, so `'team'` access gained via `team_members` doesn't reach open clients until reload.
