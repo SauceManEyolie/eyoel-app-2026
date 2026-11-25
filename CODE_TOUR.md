@@ -126,3 +126,36 @@ Updated with every step we build.
   - the total, as text.
 - A dashed line marks the heavy threshold. Heavy weeks get a tint and a ⚠ "Heavy" label.
 - "Show as table" lists the same numbers as text, for anyone who can't tell the colours apart.
+
+---
+
+## Click: "Break it down" (step 5)
+
+### 1. The button — `src/pages/(app)/(protected)/crews/[id]/index.tsx`
+- Each `ItemRow` shows the saved steps if the item has them. Otherwise it shows **Break it down**.
+- The page also reads your own `usage_counters` row for today, live, to show "AI breakdowns left today: N of 10". Buttons are disabled at 0.
+- Clicking calls `breakDown(itemId, redo)` in `CrewItems`. That sets `aiBusyItemId`, which disables **every** Break it down / Redo button on the page until it finishes. Then it calls `callAction('breakItDown', { itemId, redo })`.
+
+### 2. To the server
+- Same path as before: `call-action.ts` → `action-routes.ts` (sign-in check, 401 if not signed in) → `breakItDown` in `src/actions/break-down.ts`.
+
+### 3. The action — `breakItDownFor`
+1. Load the item (`tools.get`). Check you're an active member of its crew (`isActiveMember`).
+2. Steps already there and not a redo? Send them back. No AI call, nothing counted.
+3. `reserveUsage(..., 'ai', 10, now)` (`src/lib/usage-limits.ts`): if today's count is already 10, stop. Otherwise add one **now, before any money is spent**.
+4. `buildBreakDownRequest(item)` (`src/lib/ai-steps.ts`) builds the request: model `claude-haiku-5-5`, at most 600 tokens, instructions to reply with JSON `{"steps": [...]}`.
+5. `tools.integration('anthropic/chat-completion', body)` asks DeepSpace's integration service to call Claude. It's billed to the app owner because `src/integrations.ts` says `billing: 'developer'`.
+6. No answer? `refundUsage` gives the count back.
+7. `extractText` + `parseSteps` turn the reply into 4–6 clean steps. Anything else is refused and nothing is saved.
+8. `tools.update('items', itemId, { steps, stepsAt })` saves them on the item.
+
+### 4. Back to the screens
+- **You** get "Steps ready — N left today". Your "left today" line updates by itself, because your counter row changed.
+- **Everyone in the crew** gets the updated item pushed live, so the numbered steps appear on their screens too.
+
+### Why a browser can't skip the cap
+- The scaffold has a general browser route, `/api/integrations/<name>/<endpoint>`, for calling integrations directly.
+- Left as it was, any signed-in user could call any paid endpoint through it at the owner's expense.
+- `src/server/integration-guard.ts` is a **middleware**: a function that runs before the route handlers and can stop a request early. `http-routes.ts` mounts it in front of every `/api/integrations/...` route. It answers **403** unless the exact `name/endpoint` is in `BROWSER_INTEGRATION_ALLOWLIST` in `src/integrations.ts`, and that list is empty.
+- Server actions reach integrations a different way (`tools.integration`), so `breakItDown` still works.
+- So the **only** way to reach Claude, or any other paid service, is through our server actions and their checks.

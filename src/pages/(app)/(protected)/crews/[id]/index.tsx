@@ -14,6 +14,8 @@
  *  - add: any active member (addItem action)
  *  - edit: only the author (updateItem action)
  *  - delete: only the author (schema `delete: 'own'`)
+ *  - Break it down: any active member, within their own daily AI cap
+ *    (breakItDown action). Steps are stored on the item for everyone.
  */
 
 import { useState } from 'react'
@@ -26,6 +28,8 @@ import { ItemForm } from '@/components/items/ItemForm'
 import { callAction } from '@/lib/call-action'
 import { formatDueDate } from '@/lib/dates'
 import type { ItemInput, ItemType } from '@/lib/item-validation'
+import { AI_DAILY_CAP, utcDay } from '@/lib/usage-limits'
+import type { BreakDownResult } from '@/actions/break-down'
 
 /** An item as stored: the five form fields plus the crew it belongs to. */
 type Item = ItemInput & { crewId: string; steps?: string[] }
@@ -49,6 +53,23 @@ function CrewItems({ crewId, crewName }: { crewId: string; crewName: string }) {
   const itemsQuery = useQuery<Item>('items', { where: { crewId } })
   const [typeFilter, setTypeFilter] = useState<'all' | ItemType>('all')
   const [courseFilter, setCourseFilter] = useState('all')
+
+  // Your own AI usage today (the server only sends you your own row).
+  const usage = useQuery<{ count: number }>('usage_counters', {
+    where: { bucket: 'ai', day: utcDay(new Date()) },
+  })
+  const aiLeft = Math.max(0, AI_DAILY_CAP - Number(usage.records[0]?.data.count ?? 0))
+  // Only one breakdown at a time on this page: every Break it down / Redo
+  // button is disabled while one runs.
+  const [aiBusyItemId, setAiBusyItemId] = useState<string | null>(null)
+
+  async function breakDown(itemId: string, redo: boolean) {
+    setAiBusyItemId(itemId)
+    const r = await callAction<BreakDownResult>('breakItDown', { itemId, redo })
+    setAiBusyItemId(null)
+    if (!r.success) toast.error("Couldn't break it down", r.error)
+    else if (!r.data.cached) toast.success('Steps ready', `${r.data.remaining} AI breakdowns left today`)
+  }
 
   // Soonest due first; YYYY-MM-DD text sorts correctly as plain text.
   const allItems = [...itemsQuery.records].sort(
@@ -98,6 +119,9 @@ function CrewItems({ crewId, crewName }: { crewId: string; crewName: string }) {
           <h2 id="items-heading" className="font-medium">
             Items <span className="text-muted-foreground">({shown.length})</span>
           </h2>
+          <p className="w-full text-xs text-muted-foreground sm:order-last" data-testid="ai-left">
+            AI breakdowns left today: {aiLeft} of {AI_DAILY_CAP} (resets at midnight UTC)
+          </p>
           <div className="flex gap-2">
             <label className="flex flex-col gap-1 text-xs text-muted-foreground">
               Type
@@ -149,6 +173,10 @@ function CrewItems({ crewId, crewName }: { crewId: string; crewName: string }) {
                 authorId={r.createdBy}
                 isMine={r.createdBy === userId}
                 courseSuggestions={courses}
+                aiLeft={aiLeft}
+                aiBusy={aiBusyItemId !== null}
+                aiRunningHere={aiBusyItemId === r.recordId}
+                onBreakDown={(redo) => breakDown(r.recordId, redo)}
               />
             ))}
           </ul>
@@ -164,9 +192,25 @@ interface ItemRowProps {
   authorId: string
   isMine: boolean
   courseSuggestions: string[]
+  aiLeft: number
+  /** A breakdown is running somewhere on the page. */
+  aiBusy: boolean
+  /** …and it's this item's. */
+  aiRunningHere: boolean
+  onBreakDown: (redo: boolean) => void
 }
 
-function ItemRow({ itemId, item, authorId, isMine, courseSuggestions }: ItemRowProps) {
+function ItemRow({
+  itemId,
+  item,
+  authorId,
+  isMine,
+  courseSuggestions,
+  aiLeft,
+  aiBusy,
+  aiRunningHere,
+  onBreakDown,
+}: ItemRowProps) {
   const toast = useToast()
   const { getName } = useUserLookup()
   const { removeConfirmed, ready } = useMutations<Item>('items')
@@ -213,49 +257,87 @@ function ItemRow({ itemId, item, authorId, isMine, courseSuggestions }: ItemRowP
     )
   }
 
+  const hasSteps = Array.isArray(item.steps) && item.steps.length > 0
+  const aiBlockedReason = aiLeft === 0 ? 'No AI breakdowns left today' : undefined
+
   return (
-    <li
-      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4"
-      data-testid="item-row"
-    >
-      <div className="min-w-0">
-        <p className="truncate font-medium">{item.title}</p>
-        <p className="text-sm text-muted-foreground">
-          {item.course} · due {formatDueDate(item.dueDate)} · {item.estHours} h · by{' '}
-          {isMine ? 'you' : (getName(authorId) ?? 'a crewmate')}
-        </p>
+    <li className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4" data-testid="item-row">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-medium">{item.title}</p>
+          <p className="text-sm text-muted-foreground">
+            {item.course} · due {formatDueDate(item.dueDate)} · {item.estHours} h · by{' '}
+            {isMine ? 'you' : (getName(authorId) ?? 'a crewmate')}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant={item.type === 'exam' ? 'warning' : 'secondary'}>
+            {item.type === 'exam' ? 'Exam' : 'Assignment'}
+          </Badge>
+          {isMine &&
+            (confirmingDelete ? (
+              <>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={remove}
+                  disabled={!ready || deleting}
+                  loading={deleting}
+                >
+                  Confirm delete
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setConfirmingDelete(false)} disabled={deleting}>
+                  Keep
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+                  Edit
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setConfirmingDelete(true)} disabled={!ready}>
+                  Delete
+                </Button>
+              </>
+            ))}
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <Badge variant={item.type === 'exam' ? 'warning' : 'secondary'}>
-          {item.type === 'exam' ? 'Exam' : 'Assignment'}
-        </Badge>
-        {isMine &&
-          (confirmingDelete ? (
-            <>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={remove}
-                disabled={!ready || deleting}
-                loading={deleting}
-              >
-                Confirm delete
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setConfirmingDelete(false)} disabled={deleting}>
-                Keep
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-                Edit
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setConfirmingDelete(true)} disabled={!ready}>
-                Delete
-              </Button>
-            </>
-          ))}
-      </div>
+
+      {/* Break it down: show saved steps, or offer to make them. */}
+      {hasSteps ? (
+        <div className="flex flex-col gap-2 border-t border-border pt-3" data-testid="item-steps">
+          <ol className="list-decimal space-y-1 pl-5 text-sm">
+            {item.steps!.map((step, i) => (
+              <li key={i}>{step}</li>
+            ))}
+          </ol>
+          <div>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onBreakDown(true)}
+              disabled={aiBusy || aiLeft === 0}
+              loading={aiRunningHere}
+              title={aiBlockedReason ?? 'Ask the AI for new steps (uses one of your daily breakdowns)'}
+            >
+              {aiRunningHere ? 'Redoing…' : 'Redo steps'}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onBreakDown(false)}
+            disabled={aiBusy || aiLeft === 0}
+            loading={aiRunningHere}
+            title={aiBlockedReason ?? 'Use AI to turn this into 4–6 study steps'}
+          >
+            {aiRunningHere ? 'Breaking it down…' : 'Break it down'}
+          </Button>
+        </div>
+      )}
     </li>
   )
 }

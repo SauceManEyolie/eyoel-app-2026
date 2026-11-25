@@ -29,7 +29,8 @@ import {
   nativeAuthToken,
 } from 'deepspace/worker'
 import type { ExpoAuthBridgeOptions, JwtVerifierConfig, VerifyResult } from 'deepspace/worker'
-import { integrations } from '../integrations.js'
+import { BROWSER_INTEGRATION_ALLOWLIST, integrations } from '../integrations.js'
+import { integrationBrowserGuard } from './integration-guard.js'
 import type { AppContext, Env } from '../../worker.js'
 
 function jwtConfig(env: Env): JwtVerifierConfig {
@@ -186,6 +187,10 @@ export function registerAuthAndIntegrationRoutes(app: Hono<AppContext>): void {
   })
 
   // Integrations proxy → api-worker.
+  // Crunch Board: deny-by-default for everything under /api/integrations/.
+  // Must stay ABOVE the integration routes below so it runs first.
+  app.use('/api/integrations/*', integrationBrowserGuard(BROWSER_INTEGRATION_ALLOWLIST))
+
   app.get('/api/integrations', async (c) => {
     try {
       const res = await apiWorkerFetch(c.env, '/api/integrations')

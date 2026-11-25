@@ -171,6 +171,21 @@
 - Type an impossible date or `0` hours: the form says why before sending.
 - Open `/crews/<some-other-id>`: you should see "Crew not found".
 
+## Playwright status (as of step 5)
+
+**None of the Playwright tests has been run.** Running them needs the dev server (which rewrites `.dev.vars`, off-limits to me) and test accounts (none on this machine). Per your instruction, I haven't written or polished any more Playwright tests since step 3; steps 4 and 5 rely on unit tests plus the manual two-window check.
+
+| Spec | Test | Status |
+|---|---|---|
+| api.spec.ts | auth proxy forwards to auth worker (scaffold) | not run |
+| api.spec.ts | WebSocket endpoint exists (scaffold) | not run |
+| api.spec.ts | createCrew / joinCrew / addItem / updateItem refuse signed-out callers with 401 (4 tests) | not run |
+| collab.spec.ts | each browser renders its own signed-in account (scaffold) | not run |
+| collab.spec.ts | a member who joins by code sees the crew without reloading | not run (you confirmed the same behaviour by hand) |
+| collab.spec.ts | a crewmate sees a new item live and can't edit or delete it | not run |
+| collab.spec.ts | API status page, two tests (scaffold) | not run |
+| smoke.spec.ts | six scaffold smoke tests | not run (the "/home" ones may need updating, since /home now requires sign-in) |
+
 ## 2026-11-24 — Step 4: Crunch-week view (NOT committed yet)
 
 **What I did**
@@ -206,3 +221,90 @@
 - If an author leaves the crew, their items still count. They appear after current members in the legend.
 
 **Verify yourself:** the two-window check (in chat).
+
+## 2026-11-24 — Step 5: Break it down (NOT committed yet)
+
+**Integration check:** `npx deepspace integrations info anthropic/chat-completion` (full output in chat).
+- Endpoint `anthropic/chat-completion`, as planned.
+- The catalog's **default model is `claude-opus-5-5`** (expensive). Its description names `claude-haiku-5-5`, which we set explicitly.
+- Request fields: `model`, `max_tokens`, `system`, `messages`, `temperature`, as planned.
+- **No response schema is printed.** The docs say to make one real call to see it. I didn't, because it costs money. `extractText` reads the Anthropic Messages shape (`content: [{type:'text', text}]`) plus two fallbacks.
+
+**What I did**
+- `src/lib/ai-steps.ts`:
+  - `buildBreakDownRequest` uses Haiku, `max_tokens` 600, `temperature` 0.3, and a system prompt asking for JSON `{"steps": [...]}`.
+  - `extractText` pulls the reply text out of the response.
+  - `parseSteps` handles code fences, strips numbering, and requires exactly 4–6 non-empty text steps of up to 200 characters each.
+- `src/lib/usage-limits.ts`: `reserveUsage` (refuses at the cap, otherwise counts one) and `refundUsage`.
+- `src/actions/break-down.ts`, the `breakItDown` action:
+  1. Signed in? (The action route returns 401 otherwise.)
+  2. Item exists?
+  3. Active member of the item's crew?
+  4. Steps already there and not a redo? Return them with no AI call and no count.
+  5. **Count the call against today's cap of 10 BEFORE calling the AI.**
+  6. Call the AI.
+  7. AI unreachable → refund the count.
+  8. Reply isn't 4–6 steps → refuse and store nothing. The count stays, because we paid for the call.
+  9. Store `steps` and `stepsAt` on the item.
+- **Security fix (first version, replaced by the deny-by-default guard below):** marked `anthropic` as server-only on the browser proxy.
+  - Without this, any signed-in user could call Claude straight from the browser at your expense, skipping the cap.
+  - Server actions don't use that route, so `breakItDown` still works.
+  - I also checked the scaffold's in-app AI chat routes: they aren't mounted (`inApp: false` in `worker.ts:142`), so there's no other way to reach Claude.
+- Crew page, on each item:
+  - **Break it down** if the item has no steps; otherwise the numbered steps and a **Redo steps** button.
+  - While one breakdown runs, **every** Break it down / Redo button on the page is disabled. This also makes it harder to race the cap.
+  - Buttons are disabled when you have 0 left.
+  - "AI breakdowns left today: N of 10" is read live from your own `usage_counters` row.
+- Tests (all with a **fake AI**; no test calls the real AI, and no `RUN_PAID_TESTS` test exists because you asked for no new Playwright tests):
+  - `ai-steps.test.ts`: the request shape and model, reading the reply, and parsing (3/7 steps, bad JSON, empty steps, fences, numbering, long steps).
+  - `break-down.test.ts`:
+    - Steps are stored.
+    - **The counter is already 1 at the moment the fake AI is called.**
+    - A non-member is refused with no AI call and no count.
+    - Existing steps come back with no AI call and no count; Redo counts.
+    - The 11th call is blocked before reaching the AI, and the cap resets at midnight UTC.
+    - An unreachable AI is refunded. A 3- or 7-step reply is refused, stores nothing and stays counted.
+    - The model is Haiku.
+  - `integrations.test.ts`: anthropic is server-only and owner-billed; the browser block works in any letter case.
+- `npm run validate`: **passed** (13 test files, 142 tests). `eslint src tests`: clean.
+
+**Tradeoffs**
+- **Cap race:** reading the count and adding one are two separate steps. Two calls at exactly the same moment (two tabs) could both get under the cap. The page allows one breakdown at a time, so the worst case is a call or two over, never unlimited.
+- Any active member can Break it down or Redo any item in the crew. Each call counts against the clicker's own cap. Redo replaces the steps for everyone.
+- Editing an item keeps its old steps. Use Redo if they no longer fit.
+- The response shape is assumed, not confirmed (see the integration check above). If the first real click says "The AI sent an empty reply", that's the sign the shape differs. That case is refused, not refunded, so it uses one of your 10.
+
+**Verify yourself:** the two-window check (in chat). One real breakdown costs a few cents of your DeepSpace credits.
+
+## 2026-11-24 — Deny-by-default browser integration proxy (NOT committed yet)
+
+**Finding**
+- The scaffold's browser proxy `/api/integrations/<name>/<endpoint>` (`src/server/http-routes.ts`) treats any integration not listed in `src/integrations.ts` as owner-billed.
+  - A **signed-out** visitor got 401, because no integration is marked `anthropic: true`.
+  - A **signed-in** visitor was forwarded with `APP_OWNER_JWT`, so **every** catalog endpoint was callable at the owner's expense with no per-user limit: `openai/*`, `exa/*`, `gemini/*`, `email/send` (mail from `<app>@app.space`), and so on.
+- Only `anthropic` had been blocked, in the step 5 fix.
+- Nothing else reaches integrations from the browser:
+  - The agent tools (`src/ai/tools.ts`) are limited to records, schema, user and Yjs tools.
+  - The in-app AI chat routes aren't mounted.
+  - Server actions use `tools.integration`, which never goes through this route.
+
+**What I did**
+- `src/server/integration-guard.ts`: Hono middleware that answers **403 for every path under `/api/integrations/`** unless it exactly matches the allowlist. Matching ignores letter case, decodes `%2F`-style encoding and drops trailing slashes.
+- `src/integrations.ts`: added `BROWSER_INTEGRATION_ALLOWLIST = []` (empty) and removed the step 5 `serverOnly` flag and `isBrowserCallable`, which the guard replaces. `anthropic` stays `{ billing: 'developer' }`.
+- `src/server/http-routes.ts` (scaffold): mounted the guard just above the integration routes, and removed the step 5 per-integration check.
+- Left open on purpose: the bare `GET /api/integrations` (the free, read-only endpoint list used by the scaffold's `/api-status` debug page). It isn't *under* `/api/integrations/`.
+- Tests:
+  - `src/server/integration-guard.test.ts` mounts the **real** scaffold routes and checks 14 paths, both signed out and signed in (28 cases), all **403**.
+  - The 14 paths:
+    - Paid endpoints: `anthropic/chat-completion`, `openai/chat-completion`, `openai/generate-image`, `gemini/generate-image`, `exa/search`, `email/send`, `livekit/token`, `finnhub/stock-price`, `openweathermap/geocoding`.
+    - Tricky spellings: `Anthropic/Chat-Completion`, encoded `anthropic%2Fchat-completion`, `email/send/` with a trailing slash.
+    - Other routes: `status`, and `oauth/google/disconnect`.
+  - Plus: the catalog isn't blocked, and the allowlist only matches exactly.
+  - `src/integrations.test.ts` checks the allowlist is empty, no integration is anonymous, and anthropic is owner-billed.
+- **Checked that the tests can fail:** with the guard line temporarily removed, 28 of the 33 guard tests failed. After restoring it, all pass.
+
+**Tradeoffs**
+- The scaffold's `/api-status` debug page still loads (it uses only the catalog). Any future browser feature that calls an integration directly needs an allowlist entry, and should be done through a server action instead if the endpoint is paid.
+- If we ever use Google sign-in for Gmail/Calendar, `status` and `oauth/<provider>/disconnect` would need allowlisting.
+
+**Playwright:** still none run. The scaffold's `collab.spec.ts` "API status page" tests mock the catalog in the browser, so they're unaffected.

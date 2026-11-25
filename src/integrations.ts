@@ -20,11 +20,26 @@
  * `callComposio(env, ..., { asUser })` from 'deepspace/worker' instead.
  */
 
-export const integrations: Record<
-  string,
-  { billing: 'developer' | 'user'; anonymous?: boolean }
-> = {
+export interface IntegrationConfig {
+  billing: 'developer' | 'user'
+  anonymous?: boolean
+}
+
+export const integrations: Record<string, IntegrationConfig> = {
   google: { billing: 'user' },
   composio: { billing: 'user' },
+  // Claude for "Break it down": owner pays; reached only via the breakItDown action.
+  anthropic: { billing: 'developer' },
   // openai: { billing: 'developer', anonymous: true },
 }
+
+/**
+ * Crunch Board: the ONLY paths a browser may call through the integration
+ * proxy, written "name/endpoint" (e.g. 'openweathermap/geocoding'). Everything
+ * else under /api/integrations/ gets 403 (src/server/integration-guard.ts).
+ * Empty on purpose: the app calls integrations only from server actions,
+ * which don't use this route. Adding an entry lets ANY signed-in user call
+ * that endpoint at the owner's expense with no per-user limit, so don't add
+ * paid endpoints here.
+ */
+export const BROWSER_INTEGRATION_ALLOWLIST: readonly string[] = []
