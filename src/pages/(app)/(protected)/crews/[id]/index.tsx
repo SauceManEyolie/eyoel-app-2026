@@ -1,8 +1,10 @@
 /**
  * /crews/:id — one crew's items, with an Add item form and filters.
  *
- * The file name `[id].tsx` makes the router treat that part of the URL as a
- * value: /crews/abc123 opens this page with id = "abc123".
+ * The folder name `[id]` makes the router treat that part of the URL as a
+ * value: /crews/abc123 opens this page with id = "abc123". The file is
+ * `[id]/index.tsx` (not `[id].tsx`) so it can sit next to `[id]/crunch.tsx`;
+ * a `[id].tsx` file would turn into a wrapper around the crunch page.
  *
  * Everything here is live. `useQuery('items', …)` only ever receives items
  * of crews you're in (server-enforced 'team' rule), and new or changed items
@@ -18,42 +20,25 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth, useMutations, useQuery, useUserLookup } from 'deepspace'
 import { Badge, Button, EmptyState, useToast } from '@/components/ui'
+import { CrewNotFound } from '@/components/crews/CrewNotFound'
+import { useCrew } from '@/components/crews/useCrew'
 import { ItemForm } from '@/components/items/ItemForm'
 import { callAction } from '@/lib/call-action'
 import { formatDueDate } from '@/lib/dates'
 import type { ItemInput, ItemType } from '@/lib/item-validation'
-
-interface Crew {
-  crewId: string
-  name: string
-  inviteCode: string
-}
 
 /** An item as stored: the five form fields plus the crew it belongs to. */
 type Item = ItemInput & { crewId: string; steps?: string[] }
 
 export default function CrewPage() {
   const { id = '' } = useParams()
-  const crewQuery = useQuery<Crew>('crews', { where: { crewId: id } })
-  const crew = crewQuery.records[0]?.data
+  const { crew, loading } = useCrew(id)
 
-  if (crewQuery.status === 'loading') {
+  if (loading) {
     return <p className="p-6 text-sm text-muted-foreground">Loading crew…</p>
   }
-  if (!crew) {
-    // Also what a non-member sees: the server never sends them the crew.
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-8">
-        <EmptyState
-          title="Crew not found"
-          description="It doesn't exist, or you're not a member. Ask a crewmate for the invite code."
-        />
-        <Link to="/home" className="mt-4 inline-block text-sm underline underline-offset-4">
-          Back to My crews
-        </Link>
-      </div>
-    )
-  }
+  // Also what a non-member sees: the server never sends them the crew.
+  if (!crew) return <CrewNotFound />
 
   return <CrewItems crewId={crew.crewId} crewName={crew.name} />
 }
@@ -90,7 +75,15 @@ function CrewItems({ crewId, crewName }: { crewId: string; crewName: string }) {
         <Link to="/home" className="text-sm text-muted-foreground hover:underline">
           ← My crews
         </Link>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">{crewName}</h1>
+        <div className="mt-1 flex flex-wrap items-baseline justify-between gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight">{crewName}</h1>
+          <Link
+            to={`/crews/${crewId}/crunch`}
+            className="text-sm font-medium underline-offset-4 hover:underline"
+          >
+            Crunch week →
+          </Link>
+        </div>
       </header>
 
       <section className="rounded-lg border border-border bg-card p-4" aria-labelledby="add-heading">

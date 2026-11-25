@@ -170,3 +170,39 @@
 - The two-window check (steps in chat).
 - Type an impossible date or `0` hours: the form says why before sending.
 - Open `/crews/<some-other-id>`: you should see "Crew not found".
+
+## 2026-11-24 — Step 4: Crunch-week view (NOT committed yet)
+
+**What I did**
+- `src/lib/dates.ts`: added `addDays`, `weekStart` (that week's Monday) and `formatWeekRange` ("Dec 7–13"). They use only UTC functions on date-only text.
+- `src/lib/crunch.ts`: `buildCrunchWeeks(items, firstWeek, weekCount, memberCount)` is a plain function. It returns one entry per week (empty weeks included) with the total, hours per author, and a heavy flag, plus earlier/later/skipped totals.
+  - `HEAVY_WEEK_HOURS_PER_MEMBER = 15`: a week is heavy when its total ÷ active members ≥ 15 h. The reason is in the code comment.
+  - `CRUNCH_WEEKS = 8`.
+- **Moved** `crews/[id].tsx` → `crews/[id]/index.tsx`. Otherwise the router would make the crew page a wrapper around the crunch page (generouted source, `dist/index.js:20–48`). The address is unchanged.
+- Shared crew loading: `src/components/crews/useCrew.ts` (a custom hook) and `CrewNotFound.tsx`, used by both crew pages.
+- `src/pages/(app)/(protected)/crews/[id]/crunch.tsx`: the crunch page. It reads items and members live and recalculates with `useMemo`.
+- `src/components/crunch/WeekBars.tsx`: horizontal stacked bars drawn in plain HTML/CSS, with no chart library.
+  - Each member has a fixed colour by join order. Past 8 members, the rest fold into "Others".
+  - Segments are separated by 2px gaps. Each has a hover tooltip.
+  - A dashed line marks the heavy threshold. Heavy weeks get a warning tint and a ⚠ "Heavy" label.
+  - There's a legend, and a "Show as table" view.
+- `src/styles.css`: chart colour variables, taken from the dataviz guide's reference palette and run through its validator.
+  - Dark ("slate", card `#161616`): all checks pass.
+  - Light ("paper", `#fafafa`): three colours are under 3:1 contrast, so a table view is required. It's there.
+- The crew page has a "Crunch week →" link.
+- Tests:
+  - `src/lib/crunch.test.ts`: Sunday, Monday, mid-week, both sides of the year boundary, US forward/back and EU forward clock changes, and a leap day.
+  - The same answers under the New York, Auckland and London timezones. A guard confirms the timezone really switched.
+  - Totals per member, empty weeks, earlier/later, exact quarter hours, skipped items, the heavy line at 44.75 vs 45 h, and zero members.
+  - `assign-series.test.ts`: colour order and folding.
+
+**Why**
+- Totals are always calculated, never stored, so they can't drift out of date, and live updates come for free from `useQuery`.
+- Colours follow the member's join order, not who has the most hours, so a member's colour doesn't change as numbers change.
+
+**Tradeoffs**
+- Hours count toward the person who **posted** the item, as approved. A shared assignment everyone must do still only counts once, for its poster.
+- The current week is based on the viewer's own calendar date. Someone in a far-off timezone may briefly see a different "This week" around midnight.
+- If an author leaves the crew, their items still count. They appear after current members in the legend.
+
+**Verify yourself:** the two-window check (in chat).

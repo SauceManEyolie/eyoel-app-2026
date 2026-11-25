@@ -53,6 +53,53 @@ export function formatDueDate(text: string): string {
   })
 }
 
+/** A UTC-midnight Date → "YYYY-MM-DD" (reads only UTC parts). */
+function toDateOnly(t: Date): string {
+  const y = t.getUTCFullYear()
+  const m = String(t.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(t.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+/** "2026-12-30" + 3 days → "2027-01-02". Null if the date isn't real. */
+export function addDays(text: string, days: number): string | null {
+  const p = parseDateOnly(text)
+  if (!p) return null
+  // Date.UTC rolls over months and years by itself (Dec 33 → Jan 2).
+  return toDateOnly(new Date(Date.UTC(p.year, p.month - 1, p.day + days)))
+}
+
+/**
+ * The Monday that starts this date's week. "2026-12-09" (Wed) → "2026-12-07".
+ * Sunday belongs to the week that started six days earlier.
+ * Null if the date isn't real.
+ */
+export function weekStart(text: string): string | null {
+  const p = parseDateOnly(text)
+  if (!p) return null
+  // getUTCDay(): Sunday = 0, Monday = 1, … Saturday = 6.
+  // (day + 6) % 7 turns that into "days since Monday": Mon = 0 … Sun = 6.
+  const sinceMonday = (new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay() + 6) % 7
+  return addDays(text, -sinceMonday)
+}
+
+/** "2026-12-07" → "Dec 7–13"; across months "Dec 28 – Jan 3". */
+export function formatWeekRange(monday: string): string {
+  const start = parseDateOnly(monday)
+  const sunday = addDays(monday, 6)
+  const end = sunday ? parseDateOnly(sunday) : null
+  if (!start || !end) return monday
+  const fmt = (p: DateParts, opts: Intl.DateTimeFormatOptions) =>
+    new Date(Date.UTC(p.year, p.month - 1, p.day)).toLocaleDateString(undefined, {
+      timeZone: 'UTC',
+      ...opts,
+    })
+  if (start.month === end.month) {
+    return `${fmt(start, { month: 'short', day: 'numeric' })}–${end.day}`
+  }
+  return `${fmt(start, { month: 'short', day: 'numeric' })} – ${fmt(end, { month: 'short', day: 'numeric' })}`
+}
+
 /** Today on the viewer's own calendar, as "YYYY-MM-DD". */
 export function todayDateOnly(now: Date = new Date()): string {
   const y = now.getFullYear()

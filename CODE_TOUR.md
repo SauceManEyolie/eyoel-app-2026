@@ -94,3 +94,35 @@ Updated with every step we build.
 - Hiding the buttons is only for convenience. The real protection is on the server:
   - **Edit** goes through `updateItem`, which refuses anyone but the author.
   - **Delete** is a direct database delete, which the schema allows only for the author (`delete: 'own'`).
+
+---
+
+## From an item to a week bar (step 4)
+
+### 1. Open the page — `src/pages/(app)/(protected)/crews/[id]/crunch.tsx`
+- The crew page links here with **Crunch week →**. The address is `/crews/<id>/crunch`.
+- Why the crew page moved to `crews/[id]/index.tsx`: the router builds addresses from file names.
+  - A file `[id].tsx` sitting next to a folder `[id]/` would turn into a wrapper around everything in that folder.
+  - `index.tsx` means "the page at the folder's own address", so `/crews/<id>` still shows the crew page.
+- `useCrew(id)` (`src/components/crews/useCrew.ts`) loads the crew. It's a **custom hook**: a reusable function, starting with `use`, that calls other hooks. Both crew pages use it.
+
+### 2. Live data in
+- `useQuery('items', { where: { crewId } })` and `useQuery('team_members', { where: { teamId: crewId } })` are live subscriptions.
+- When anyone in the crew adds, edits or deletes an item, the new list arrives and React redraws the page.
+
+### 3. The maths — `src/lib/crunch.ts` → `buildCrunchWeeks`
+- `weekStart(todayDateOnly())` gives this week's Monday. Then it makes 8 empty weekly buckets.
+- For each item, it finds its week's Monday with `weekStart(item.dueDate)` (`src/lib/dates.ts`), and adds the hours to that week's total and to the author's share.
+  - Items due before the first week go into "Earlier"; after the last week, "Later".
+- **Heavy:** total ÷ active members ≥ `HEAVY_WEEK_HOURS_PER_MEMBER` (15).
+- **No timezone involved:** the date text is split into numbers, and only UTC arithmetic is used. So a Sunday deadline stays in its week on every computer.
+- `useMemo` re-runs this only when the items or member count change, not on every redraw.
+
+### 4. The picture — `src/components/crunch/WeekBars.tsx`
+- `assignSeries` gives each member a colour slot in join order (`--series-1`… in `src/styles.css`), so colours don't jump around.
+- Each week row has three parts:
+  - the label;
+  - the bar: its width is total ÷ (largest week or the heavy line) × 100%, and inside it each member's segment grows in proportion to their hours;
+  - the total, as text.
+- A dashed line marks the heavy threshold. Heavy weeks get a tint and a ⚠ "Heavy" label.
+- "Show as table" lists the same numbers as text, for anyone who can't tell the colours apart.
