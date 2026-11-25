@@ -1,5 +1,40 @@
 # Build Log — Crunch Board
 
+> This log was written by Claude Code. Only the sections titled 'Verified by you' record what I tested myself. Other claims, such as test counts, SDK line numbers and cost estimates, are agent-reported and were not independently verified by me.
+
+## Current status
+
+**What the app does.** Crunch Board lets study groups ("crews") join with an invite code and post assignments and exams with a course, due date, type and estimated hours. It shows a live crunch-week view of hours per week across the crew, and a "Break it down" button uses AI to turn an item into 4–6 study steps.
+
+**What works, and how each part was verified**
+
+| Feature | Unit tests (agent-reported) | Your two-account check, local | Your check, live site |
+|---|---|---|---|
+| Create crew, join with a code, live crew list | yes | worked | created a crew: worked |
+| Items: add, live list in the other window, edit/delete only your own | yes | worked | added an item: worked |
+| Crunch-week totals updating live | yes (week math) | worked | — |
+| Break it down | yes (fake AI only) | clicked once: worked | clicked once: worked |
+| Browser integration proxy returns 403 | yes | anthropic and openai: 403 | anthropic and openai: 403, signed in and signed out |
+| Crew links no longer 404 (vite config fix) | yes (route test) | 404 went away | — |
+
+A dash (—) means you didn't report checking it there. The unit tests last passed with 15 test files and 180 tests (agent-reported).
+
+**Not tested:** the Playwright tests were never run.
+
+**Known limits**
+- Hours count toward whoever posted an item.
+- The AI cap can be slightly exceeded by simultaneous clicks.
+- Only the tab that clicked Join refreshes right after joining a crew.
+- The owner sees all crews as admin.
+
+**What I would do next**
+- A weekly digest email.
+- Leads removing members and rotating invite codes.
+- Per-assignee hours.
+- Closing the open `GET /api/integrations` listing.
+
+---
+
 ## 2026-11-24 — Step 1: Working agreements + plan
 
 **What I did**
@@ -17,7 +52,7 @@
 - CLI catalogs: `deepspace add --list`, `deepspace integrations info anthropic/chat-completion`
 
 **Tradeoffs**
-- Nothing committed yet; waiting for plan approval.
+- Nothing committed yet; waiting for plan approval. (Later approved and committed as `bf87632`.)
 
 **Verify yourself**
 - Read `CLAUDE.md` and confirm the rules match what you want.
@@ -55,7 +90,7 @@
 - Replaced `teamField: '_rowId'` with a real `crewId` column (required, immutable) and `teamField: 'crewId'`. **Why:** `'_rowId'` is undocumented and could change in a later SDK version.
 - Schema tests now also check crews: `teamField === 'crewId'`, `crewId` required and immutable, unique invite codes, no browser create/update.
 
-## 2026-11-24 — Step 2: createCrew, joinCrew, /home (NOT committed yet)
+## 2026-11-24 — Step 2: createCrew, joinCrew, /home (committed: `733b72a`)
 
 **What I did**
 - `src/lib/invite-code.ts`: makes 8-character codes from `23456789ABCDEFGHJKMNPQRSTUVWXYZ` using `crypto.getRandomValues`, discarding biased bytes so every character is equally likely. Also cleans up typed codes ("k7mp-q2xr" → "K7MPQ2XR") and shows them as "K7MP-Q2XR".
@@ -124,7 +159,7 @@
 - Try a wrong code: the message says how many tries are left.
 - Signed out, open `/home`: you should see the sign-in panel, not the crew forms.
 
-## 2026-11-24 — Step 3: Crew page, items, add/edit/delete (NOT committed yet)
+## 2026-11-24 — Step 3: Crew page, items, add/edit/delete (committed: `c6daa4c`)
 
 **What I did**
 - `src/lib/dates.ts`: date-only helpers. They check "YYYY-MM-DD" is a real date (2000–2099), show it as "Mon, Dec 7", and give today's date on the viewer's own calendar. They never use `new Date("YYYY-MM-DD")`.
@@ -186,7 +221,7 @@
 | collab.spec.ts | API status page, two tests (scaffold) | not run |
 | smoke.spec.ts | six scaffold smoke tests | not run (the "/home" ones may need updating, since /home now requires sign-in) |
 
-## 2026-11-24 — Step 4: Crunch-week view (NOT committed yet)
+## 2026-11-24 — Step 4: Crunch-week view (committed: `2f4c5c9`)
 
 **What I did**
 - `src/lib/dates.ts`: added `addDays`, `weekStart` (that week's Monday) and `formatWeekRange` ("Dec 7–13"). They use only UTC functions on date-only text.
@@ -222,7 +257,7 @@
 
 **Verify yourself:** the two-window check (in chat).
 
-## 2026-11-24 — Step 5: Break it down (NOT committed yet)
+## 2026-11-24 — Step 5: Break it down (committed: `de2f1e7`)
 
 **Integration check:** `npx deepspace integrations info anthropic/chat-completion` (full output in chat).
 - Endpoint `anthropic/chat-completion`, as planned.
@@ -276,7 +311,7 @@
 
 **Verify yourself:** the two-window check (in chat). One real breakdown costs a few cents of your DeepSpace credits.
 
-## 2026-11-24 — Deny-by-default browser integration proxy (NOT committed yet)
+## 2026-11-24 — Deny-by-default browser integration proxy (committed: `de2f1e7`)
 
 **Finding**
 - The scaffold's browser proxy `/api/integrations/<name>/<endpoint>` (`src/server/http-routes.ts`) treats any integration not listed in `src/integrations.ts` as owner-billed.
@@ -309,7 +344,7 @@
 
 **Playwright:** still none run. The scaffold's `collab.spec.ts` "API status page" tests mock the catalog in the browser, so they're unaffected.
 
-## 2026-11-24 — Bug: crew link from /home showed the 404 page (NOT committed yet)
+## 2026-11-24 — Bug: crew link from /home showed the 404 page (committed: `15f20ec`)
 
 **What you saw:** clicking a crew on `/home` went to `/crews/e7691209-…` and showed the app's own 404 page (`[...all].tsx`), with the dev server still running.
 
@@ -363,3 +398,8 @@ You tested with two accounts: your normal browser window and a private window.
 **Not tested**
 - The Playwright tests: none were run.
 - The deployed site, including the `/api/integrations/...` console checks there.
+
+## Verified by you on the deployed site
+
+- The console checks against `/api/integrations/anthropic/...` and `/api/integrations/openai/...` returned 403 on the live site, signed in and signed out.
+- On the live site you signed in, created a crew, added an item, and clicked Break it down once. It worked.
