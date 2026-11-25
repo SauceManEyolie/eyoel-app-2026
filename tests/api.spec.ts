@@ -15,4 +15,13 @@ test.describe('API tests', () => {
     await page.waitForSelector('[data-testid="app-navigation"]', { timeout: 15000 })
     // If the app loaded and connected, the WS endpoint works
   })
+
+  for (const action of ['createCrew', 'joinCrew']) {
+    test(`${action} refuses signed-out callers with 401`, async ({ request }) => {
+      const res = await request.post(`/api/actions/${action}`, {
+        data: { name: 'x', code: 'ABCDEFGH' },
+      })
+      expect(res.status()).toBe(401)
+    })
+  }
 })

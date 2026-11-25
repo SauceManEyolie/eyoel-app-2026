@@ -16,12 +16,15 @@ import type { CollectionSchema } from 'deepspace/schema'
 /** Invite codes are exactly this long. */
 export const INVITE_CODE_LENGTH = 8
 
+/** Longest allowed crew name. */
+export const CREW_NAME_MAX = 60
+
 export const crewsSchema: CollectionSchema = {
   name: 'crews',
   columns: [
     // Same value as the record id. Set once by createCrew, never changed.
     { name: 'crewId', storage: 'text', interpretation: 'plain', required: true, immutable: true },
-    { name: 'name', storage: 'text', interpretation: 'plain', required: true, maxLength: 60 },
+    { name: 'name', storage: 'text', interpretation: 'plain', required: true, maxLength: CREW_NAME_MAX },
     {
       name: 'inviteCode',
       storage: 'text',

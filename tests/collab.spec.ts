@@ -62,6 +62,43 @@ test('each browser renders its own signed-in account', async ({ users }) => {
   }
 })
 
+/**
+ * Crunch Board step 2: does a freshly joined member see the crew LIVE?
+ * (No reload anywhere in this test — that's the point.) If this fails at the
+ * "Bob sees the crew" line, the membership change isn't reaching Bob's open
+ * connection; see BUILD_LOG.md "userId vs UserId".
+ */
+test('a member who joins by code sees the crew without reloading', async ({ users }) => {
+  const [alice, bob] = await users(2)
+  const crewName = `__test-${Date.now()}__ Orgo Night Owls`
+
+  await Promise.all([alice.page.goto('/home'), bob.page.goto('/home')])
+
+  // Alice creates a crew; it appears in her list with an invite code.
+  await alice.page.getByLabel('Create a crew').fill(crewName)
+  await alice.page.getByRole('button', { name: 'Create crew' }).click()
+  const aliceRow = alice.page.getByTestId('crew-row').filter({ hasText: crewName })
+  await expect(aliceRow).toBeVisible({ timeout: 10_000 })
+  await expect(aliceRow).toContainText('1 member')
+  const code = (await aliceRow.getByTestId('crew-invite-code').textContent())!.trim()
+
+  // Bob's list doesn't show it yet.
+  await expect(bob.page.getByText(crewName)).toHaveCount(0)
+
+  // Bob joins with the code.
+  await bob.page.getByLabel('Join with a code').fill(code)
+  await bob.page.getByRole('button', { name: 'Join crew' }).click()
+  await expect(bob.page.getByText(/^Joined /)).toBeVisible({ timeout: 10_000 })
+
+  // The question under test: Bob sees the crew with NO reload.
+  const bobRow = bob.page.getByTestId('crew-row').filter({ hasText: crewName })
+  await expect(bobRow).toBeVisible({ timeout: 10_000 })
+  await expect(bobRow).toContainText('2 members')
+
+  // And Alice's open page updates to 2 members live.
+  await expect(aliceRow).toContainText('2 members', { timeout: 10_000 })
+})
+
 test('API status page renders loading success and error states', async ({ users }) => {
   const [user] = await users(1)
   let shouldFail = false
