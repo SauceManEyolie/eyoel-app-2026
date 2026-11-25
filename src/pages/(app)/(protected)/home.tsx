@@ -9,6 +9,7 @@
  */
 
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth, useQuery } from 'deepspace'
 import { Badge, Button, EmptyState, Input, Label, useToast } from '@/components/ui'
 import { callAction } from '@/lib/call-action'
@@ -102,7 +103,12 @@ function CrewList() {
               className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4"
             >
               <div className="min-w-0">
-                <p className="truncate font-medium">{crew.data.name}</p>
+                <Link
+                  to={`/crews/${crew.data.crewId}`}
+                  className="block truncate font-medium underline-offset-4 hover:underline"
+                >
+                  {crew.data.name}
+                </Link>
                 <p className="text-sm text-muted-foreground">
                   {memberCount(crew.data.crewId)} member
                   {memberCount(crew.data.crewId) === 1 ? '' : 's'}

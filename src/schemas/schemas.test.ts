@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { checkFieldPermissions, lintSchemas } from 'deepspace/worker'
+import { canDelete, canUpdate, checkFieldPermissions, lintSchemas } from 'deepspace/worker'
 import { schemas } from '../schemas'
 import { itemsSchema } from './items-schema'
 import { crewsSchema } from './crews-schema'
@@ -47,7 +47,20 @@ describe('schemas', () => {
       estHours: 3,
     }
 
-    it('lets a member edit an editable field', () => {
+    // A row Alice created, as the SDK's permission checks see it.
+    const alicesItem = { recordId: 'item_1', createdBy: 'user_alice', data: existing }
+
+    it.each(['member', 'admin'])('gives %s no direct update (edits go through updateItem)', (role) => {
+      expect(canUpdate(itemsSchema, role, alicesItem, 'user_alice')).toBe(false)
+      expect(canUpdate(itemsSchema, role, alicesItem, 'user_bob')).toBe(false)
+    })
+
+    it('lets the author delete their own item, and no other member', () => {
+      expect(canDelete(itemsSchema, 'member', alicesItem, 'user_alice')).toBe(true)
+      expect(canDelete(itemsSchema, 'member', alicesItem, 'user_bob')).toBe(false)
+    })
+
+    it('second lock: editable fields would still be allowed if update were opened', () => {
       expect(checkFieldPermissions(itemsSchema, 'member', { estHours: 5 }, existing)).toBeNull()
     })
 

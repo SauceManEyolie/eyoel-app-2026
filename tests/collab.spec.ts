@@ -99,6 +99,53 @@ test('a member who joins by code sees the crew without reloading', async ({ user
   await expect(aliceRow).toContainText('2 members', { timeout: 10_000 })
 })
 
+/**
+ * Crunch Board step 3: A adds an item, B sees it live and can't edit it.
+ */
+test("a crewmate sees a new item live and can't edit or delete it", async ({ users }) => {
+  const [alice, bob] = await users(2)
+  const stamp = Date.now()
+  const crewName = `__test-${stamp}__ Calc crew`
+  const title = `__test-${stamp}__ Problem set 7`
+
+  // Alice creates a crew, Bob joins it with the code.
+  await Promise.all([alice.page.goto('/home'), bob.page.goto('/home')])
+  await alice.page.getByLabel('Create a crew').fill(crewName)
+  await alice.page.getByRole('button', { name: 'Create crew' }).click()
+  const aliceRow = alice.page.getByTestId('crew-row').filter({ hasText: crewName })
+  await expect(aliceRow).toBeVisible({ timeout: 10_000 })
+  const code = (await aliceRow.getByTestId('crew-invite-code').textContent())!.trim()
+  await bob.page.getByLabel('Join with a code').fill(code)
+  await bob.page.getByRole('button', { name: 'Join crew' }).click()
+
+  // Both open the crew page.
+  await aliceRow.getByRole('link', { name: crewName }).click()
+  const bobRow = bob.page.getByTestId('crew-row').filter({ hasText: crewName })
+  await expect(bobRow).toBeVisible({ timeout: 10_000 })
+  await bobRow.getByRole('link', { name: crewName }).click()
+  await expect(alice.page.getByRole('heading', { name: crewName })).toBeVisible()
+  await expect(bob.page.getByRole('heading', { name: crewName })).toBeVisible()
+
+  // Alice adds an item.
+  await alice.page.getByLabel('Title', { exact: true }).fill(title)
+  await alice.page.getByLabel('Course', { exact: true }).fill('MATH 221')
+  await alice.page.getByLabel('Due date').fill('2026-12-09')
+  await alice.page.getByLabel('Type', { exact: true }).selectOption('assignment')
+  await alice.page.getByLabel('Est. hours').fill('4')
+  await alice.page.getByRole('button', { name: 'Add item' }).click()
+
+  const aliceItem = alice.page.getByTestId('item-row').filter({ hasText: title })
+  await expect(aliceItem).toBeVisible({ timeout: 10_000 })
+  await expect(aliceItem.getByRole('button', { name: 'Edit' })).toBeVisible()
+
+  // Bob sees it with no reload, but has no Edit or Delete on it.
+  const bobItem = bob.page.getByTestId('item-row').filter({ hasText: title })
+  await expect(bobItem).toBeVisible({ timeout: 10_000 })
+  await expect(bobItem).toContainText('MATH 221')
+  await expect(bobItem.getByRole('button', { name: 'Edit' })).toHaveCount(0)
+  await expect(bobItem.getByRole('button', { name: 'Delete' })).toHaveCount(0)
+})
+
 test('API status page renders loading success and error states', async ({ users }) => {
   const [user] = await users(1)
   let shouldFail = false

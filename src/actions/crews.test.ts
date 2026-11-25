@@ -15,12 +15,12 @@ async function aliceCrew(tools: ReturnType<typeof makeFakeTools>['tools']) {
 
 describe('createCrewFor', () => {
   it('uses one id for both the record id and crewId, and makes the creator lead', async () => {
-    const { fake, tools } = makeFakeTools()
+    const { tables, tools } = makeFakeTools()
     await aliceCrew(tools)
-    const crew = fake.tables.get('crews')![0]
+    const crew = tables.get('crews')![0]
     expect(crew.recordId).toBe('crew_1')
     expect(crew.data.crewId).toBe('crew_1')
-    expect(fake.tables.get('team_members')![0].data).toMatchObject({
+    expect(tables.get('team_members')![0].data).toMatchObject({
       teamId: 'crew_1',
       userId: ALICE,
       crewRole: 'lead',
@@ -46,23 +46,23 @@ describe('createCrewFor', () => {
 
 describe('joinCrewFor', () => {
   it('joins with a right code, typed loosely', async () => {
-    const { fake, tools } = makeFakeTools()
+    const { tables, tools } = makeFakeTools()
     await aliceCrew(tools)
     const r = await joinCrewFor(tools, BOB, ' k7mp-q2xr ', NOON)
     expect(r).toEqual({
       success: true,
       data: { crewId: 'crew_1', name: 'Orgo Night Owls', alreadyMember: false },
     })
-    expect(fake.tables.get('team_members')).toHaveLength(2)
+    expect(tables.get('team_members')).toHaveLength(2)
   })
 
   it('does not add a second row when already a member', async () => {
-    const { fake, tools } = makeFakeTools()
+    const { tables, tools } = makeFakeTools()
     await aliceCrew(tools)
     await joinCrewFor(tools, BOB, 'K7MPQ2XR', NOON)
     const again = await joinCrewFor(tools, BOB, 'K7MPQ2XR', NOON)
     expect(again.success && again.data.alreadyMember).toBe(true)
-    expect(fake.tables.get('team_members')).toHaveLength(2)
+    expect(tables.get('team_members')).toHaveLength(2)
   })
 
   it('counts wrong and malformed codes, and says how many tries are left', async () => {
@@ -75,7 +75,7 @@ describe('joinCrewFor', () => {
   })
 
   it(`blocks even the right code after ${JOIN_FAIL_DAILY_CAP} wrong guesses in a UTC day`, async () => {
-    const { fake, tools } = makeFakeTools()
+    const { tables, tools } = makeFakeTools()
     await aliceCrew(tools)
     for (let i = 0; i < JOIN_FAIL_DAILY_CAP; i++) {
       expect((await joinCrewFor(tools, BOB, 'ZZZZZZZZ', NOON)).success).toBe(false)
@@ -86,7 +86,7 @@ describe('joinCrewFor', () => {
       error: 'Too many wrong codes today. Try again after midnight UTC.',
     })
     // Counter stopped at the cap: blocked attempts don't keep incrementing.
-    const counter = fake.tables.get('usage_counters')!
+    const counter = tables.get('usage_counters')!
     expect(counter).toHaveLength(1)
     expect(counter[0].data).toMatchObject({ userId: BOB, bucket: 'join-fail', day: '2026-11-24', count: JOIN_FAIL_DAILY_CAP })
   })
@@ -107,9 +107,9 @@ describe('joinCrewFor', () => {
   })
 
   it('a right code does not use up a try', async () => {
-    const { fake, tools } = makeFakeTools()
+    const { tables, tools } = makeFakeTools()
     await aliceCrew(tools)
     await joinCrewFor(tools, BOB, 'K7MPQ2XR', NOON)
-    expect(fake.tables.get('usage_counters') ?? []).toHaveLength(0)
+    expect(tables.get('usage_counters') ?? []).toHaveLength(0)
   })
 })

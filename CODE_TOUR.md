@@ -55,3 +55,42 @@ Updated with every step we build.
   3. `<CrewList key={listVersion} />` gets a new **key**, a label React uses to tell components apart. A new label makes React throw the old list away and build a new one.
   4. The new list's `useQuery` calls open fresh subscriptions. The server answers them with your memberships as they are *now*, so the crew and its full member count appear.
 - It's all in one commented block at the top of `HomePage`.
+
+---
+
+## Click: "Add item" on a crew page (step 3)
+
+### 1. The page — `src/pages/(app)/(protected)/crews/[id].tsx`
+- The `[id]` in the file name means "this part of the address is a value". Opening `/crews/abc123` runs this page, and `useParams()` gives `id = "abc123"`.
+- `CrewPage` asks for that crew with `useQuery('crews', { where: { crewId: id } })`. The server only sends it if you're a member. Otherwise you see "Crew not found".
+- `CrewItems` asks for the crew's items with `useQuery('items', { where: { crewId } })`. That's a live **subscription**, like the crew list on `/home`.
+
+### 2. The form — `src/components/items/ItemForm.tsx`
+- You fill in Title, Course, Due date, Type and Est. hours.
+  - The date box (`type="date"`) always hands the code text like `"2026-12-09"`, whatever format your computer displays.
+  - Hours are kept as text while you type, and turned into a number on submit.
+- Pressing **Add item** runs `handleSubmit`. It checks the fields with `validateItemInput` (`src/lib/item-validation.ts`).
+  - If anything is wrong, it shows the message under the form and sends nothing.
+  - Otherwise it disables the form and calls the page's `addItem` function.
+
+### 3. To the server — `callAction('addItem', { crewId, ...fields })`
+- Same path as Create crew:
+  1. `src/lib/call-action.ts` sends the request.
+  2. `src/server/action-routes.ts` checks your sign-in token and finds `addItem` in `src/actions/index.ts`.
+- `...fields` is JavaScript's "spread": copy every field of this object into the new one.
+
+### 4. The action — `src/actions/items.ts` → `addItemFor`
+- Is there a `crewId`? If not, "Missing crew."
+- `isActiveMember` (`src/actions/membership.ts`) looks for your `team_members` row in that crew with status `active`. If there isn't one: "You're not a member of this crew."
+- `validateItemInput` runs **again**. The server never trusts the browser's check, because anyone can send a request without using our form.
+- `tools.create('items', { crewId, ...validFields })` saves the row. The server records **you** as `createdBy`, the item's author.
+
+### 5. Back to every screen in the crew
+- **Your screen:** the action replies `{ success: true }`. The page shows "Item added", and the form clears the title and hours, keeping course and type for the next one.
+- **Every crewmate's screen:** the database checks each open live connection with the `'team'` rule ("is this person an active member of the item's crew?"). Members get the new row pushed, and their `CrewItems` redraws the list. No reload.
+
+### Who sees which buttons — `ItemRow` in the same page file
+- `isMine` is `item.createdBy === your userId`. Only then are **Edit** and **Delete** drawn.
+- Hiding the buttons is only for convenience. The real protection is on the server:
+  - **Edit** goes through `updateItem`, which refuses anyone but the author.
+  - **Delete** is a direct database delete, which the schema allows only for the author (`delete: 'own'`).

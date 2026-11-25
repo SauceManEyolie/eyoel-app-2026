@@ -16,7 +16,7 @@ test.describe('API tests', () => {
     // If the app loaded and connected, the WS endpoint works
   })
 
-  for (const action of ['createCrew', 'joinCrew']) {
+  for (const action of ['createCrew', 'joinCrew', 'addItem', 'updateItem']) {
     test(`${action} refuses signed-out callers with 401`, async ({ request }) => {
       const res = await request.post(`/api/actions/${action}`, {
         data: { name: 'x', code: 'ABCDEFGH' },
