@@ -30,7 +30,7 @@
 | Crunch-week totals updating live | yes (week math) | worked | — |
 | Break it down | yes (fake AI only) | clicked once: worked | clicked once: worked |
 | Browser integration proxy returns 403 | yes | anthropic and openai: 403 | anthropic and openai: 403, signed in and signed out |
-| Crew links no longer 404 (vite config fix) | yes (route test) | 404 went away | — |
+| Crew links no longer 404 (vite config fix) | yes (route test) | 404 went away | fixed |
 
 A dash (—) means you didn't report checking it there. The unit tests last passed with 15 test files and 180 tests (agent-reported).
 
