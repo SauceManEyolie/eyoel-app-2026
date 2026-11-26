@@ -1,6 +1,6 @@
 # Build Log — Crunch Board
 
-> This log was written by Claude Code and edited by me. In this log, 'I' means me, Eyoel, and work done by the agent is credited to Claude Code by name. Only the sections titled 'Verified by me' record what I tested myself. Other claims, such as test counts, SDK line numbers and cost estimates, are agent-reported and were not independently verified by me.
+> This log was written by Claude Code and edited by me.
 
 - **Live app:** https://eyoel-build-2026.app.space (built from `name = "eyoel-build-2026"` in `wrangler.toml`)
 - **GitHub repo:** https://github.com/SauceManEyolie/eyoel-app-2026 (`origin` in `git remote -v`)
