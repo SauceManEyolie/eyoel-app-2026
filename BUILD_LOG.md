@@ -1,6 +1,6 @@
 # Build Log — Crunch Board
 
-> This log was written by Claude Code. Only the sections titled 'Verified by you' record what I tested myself. Other claims, such as test counts, SDK line numbers and cost estimates, are agent-reported and were not independently verified by me.
+> This log was written by Claude Code and edited by me. In this log, 'I' means me, Eyoel, and work done by the agent is credited to Claude Code by name. Only the sections titled 'Verified by me' record what I tested myself. Other claims, such as test counts, SDK line numbers and cost estimates, are agent-reported and were not independently verified by me.
 
 - **Live app:** https://eyoel-build-2026.app.space (built from `name = "eyoel-build-2026"` in `wrangler.toml`)
 - **GitHub repo:** https://github.com/SauceManEyolie/eyoel-app-2026 (`origin` in `git remote -v`)
@@ -13,8 +13,8 @@
 - [Known issues and notes](#known-issues-and-notes)
 - [How to run](#how-to-run)
 - [Step-by-step history](#step-by-step-history)
-- [Verified by you in the running app](#2026-11-24--verified-by-you-in-the-running-app)
-- [Verified by you on the deployed site](#verified-by-you-on-the-deployed-site)
+- [Verified by me in the running app](#2026-11-24--verified-by-me-in-the-running-app)
+- [Verified by me on the deployed site](#verified-by-me-on-the-deployed-site)
 - [Appendix A: integrations info output](#appendix-a-integrations-info-output)
 
 ## Current status
@@ -23,10 +23,10 @@
 
 **What works, and how each part was verified**
 
-| Feature | Unit tests (agent-reported) | Your two-account check, local | Your check, live site |
+| Feature | Unit tests (agent-reported) | My two-account check, local | My check, live site |
 |---|---|---|---|
 | Create crew, join with a code, live crew list | yes | worked | created a crew: worked |
-| Items: add, live list in the other window, edit/delete only your own | yes | worked | added an item: worked |
+| Items: add, live list in the other window, edit/delete only one's own | yes | worked | added an item: worked |
 | Crunch-week totals updating live | yes (week math) | worked | worked |
 | Break it down | yes (fake AI only) | clicked once: worked | clicked once: worked |
 | Browser integration proxy returns 403 | yes | anthropic and openai: 403 | anthropic and openai: 403, signed in and signed out |
@@ -53,21 +53,21 @@
 - Found the open integration proxy and made it deny-by-default.
 - Diagnosed the routing conflict and the dev 404.
 - Implemented the join-refresh workaround.
-- committed to repo
+- Made the build commits when I asked (each carries a Co-Authored-By: Claude line).
 
 **Claude in chat** (a separate tool, not Claude Code)
 - Reviewed each plan and output.
-- Wrote most of your prompts.
+- Wrote most of my prompts.
 - Flagged concerns: the undocumented `_rowId`, the spending exposure, and guessable invite codes.
 
-**You**
+**Me**
 - Chose the idea and scope, and approved or changed each plan.
 - Ran every command.
 - Tested with two real accounts, locally and on the live site.
 - Found that a newly joined crew only appeared after a reload, and chose the fix (Claude Code implemented it).
 - Found the 404 on crew links.
 - Ran the 403 checks.
-- Committed, pushed and deployed.
+- Made the final documentation commits myself on GitHub, and pushed and deployed.
 
 
 ## Main tradeoff
@@ -113,7 +113,7 @@
 
 **Dev-only 404 fix (`vite.config.ts`)**
 - `optimizeDeps.exclude: ['@generouted/react-router', '@generouted/react-router/lazy']`.
-- The cause is a likely explanation (agent-reported): the browser was holding a stale, permanently cached copy of the pre-bundled route list. That's consistent with a fresh private window working, which you saw.
+- The cause is a likely explanation (agent-reported): the browser was holding a stale, permanently cached copy of the pre-bundled route list. That's consistent with a fresh private window working, which I saw.
 - `vite build` ignores `optimizeDeps`, so deployed builds are unaffected.
 
 **Scaffold files modified**
@@ -141,7 +141,7 @@
 
 ## 2026-11-24 — Step 1: Working agreements + plan
 
-**What I did**
+**What Claude Code did**
 - Added a "Working agreements" section to `CLAUDE.md` (kept the existing pointer to `AGENTS.md`).
 - Created this `BUILD_LOG.md`.
 - Read the DeepSpace docs and proposed a plan (no feature code written).
@@ -158,14 +158,14 @@
 **Tradeoffs**
 - Nothing committed yet; waiting for plan approval. (Later approved and committed as `bf87632`.)
 
-**Verify yourself**
-- Read `CLAUDE.md` and confirm the rules match what you want.
+**Checks**
+- Read `CLAUDE.md` and confirm the rules match what I want.
 
 **Plan approved with changes:** cap 10 AI calls/user/day; leads cannot delete others' items; lead settings moved to the end (optional); 8-char invite codes from an unambiguous alphabet, plus a limit on wrong guesses; dueDate is date-only text; weeks start Monday; show `integrations info` output before step 5.
 
 ## 2026-11-24 — Step 1: Schemas
 
-**What I did**
+**What Claude Code did**
 - Added `src/schemas/crews-schema.ts`, `team-members-schema.ts`, `items-schema.ts`, `usage-counters-schema.ts`, and registered them in `src/schemas.ts`.
 - Added `src/schemas/schemas.test.ts`. It calls the SDK's own `checkFieldPermissions` and `lintSchemas`, the same functions the server runs.
 - `npm run validate`: **passed** (3 test files, 16 tests, after the `crewId` change). `eslint` on the new files: clean.
@@ -180,13 +180,13 @@
 
 **Tradeoffs**
 - Items are created by a server action instead of directly. It's a little more code, but it's the only way to stop someone posting into a crew they aren't in, because `create` can only be `true`/`false`.
-- Admin (the app owner) is also limited by `writableFields` on items, so even you can't hand-edit `steps` from the browser. Server actions still can, because they bypass the role checks.
+- Admin (the app owner) is also limited by `writableFields` on items, so even I can't hand-edit `steps` from the browser. Server actions still can, because they bypass the role checks.
 - `maxLength` is used on text columns. It's in the installed SDK 0.44.2 types, even though one doc page calls it prototype-only.
 
 **Something to watch in step 2**
-- In the SDK source, `notifyTeamMembershipChange` reads `record.data.UserId` (capital U), while the column is `userId`. A user who just joined may not get crew data live until they reload. I'll check this in the two-user test rather than guess.
+- In the SDK source, `notifyTeamMembershipChange` reads `record.data.UserId` (capital U), while the column is `userId`. A user who just joined may not get crew data live until they reload. Claude Code planned to check this in the two-user test rather than guess.
 
-**Verify yourself**
+**Checks**
 - Read the four schema files. Each starts with a plain-language header.
 - Confirm no browser role has `create: true` anywhere in the new files: `grep -n "create: true" src/schemas/*.ts` should only show the scaffold's `admin-schema.ts` line.
 
@@ -196,7 +196,7 @@
 
 ## 2026-11-24 — Step 2: createCrew, joinCrew, /home (committed: `733b72a`)
 
-**What I did**
+**What Claude Code did**
 - `src/lib/invite-code.ts`: makes 8-character codes from `23456789ABCDEFGHJKMNPQRSTUVWXYZ` using `crypto.getRandomValues`, discarding biased bytes so every character is equally likely. Also cleans up typed codes ("k7mp-q2xr" → "K7MPQ2XR") and shows them as "K7MP-Q2XR".
 - `src/lib/usage-limits.ts`: per-user daily counters in `usage_counters` (UTC days). Caps: AI 10/day (used in step 5), wrong join codes 20/day.
 - `src/actions/crews.ts`:
@@ -213,7 +213,7 @@
 
 **Why**
 - Crew writes go through server actions so membership can only come from a valid code.
-- Checking the cap before the lookup means that once you hit 20 wrong codes, even the right code is refused until midnight UTC. A tester learns nothing from the 21st guess.
+- Checking the cap before the lookup means that once a user hits 20 wrong codes, even the right code is refused until midnight UTC. A tester learns nothing from the 21st guess.
 
 **Tradeoffs**
 - The counter is read and then written in two steps. Two wrong guesses sent at exactly the same moment could both count as one. That's fine for brute-force protection (at worst a few extra guesses); not fine for money. Step 5's AI cap will reserve the count *before* calling the AI.
@@ -222,7 +222,7 @@
 - Test crews created by the Playwright spec stay in the local dev database (members can't delete crews). They're prefixed `__test-`.
 
 **Live check: userId vs UserId — RESULT**
-- **You ran the two-window check:** window B only showed the joined crew (and the member count) **after a reload**. The bug is confirmed.
+- **I ran the two-window check:** window B only showed the joined crew (and the member count) **after a reload**. The bug is confirmed.
 - **Cause (SDK 0.44.2):**
   - When a `team_members` row is written, the server calls `notifyTeamMembershipChange`. It is meant to tell that user's open tabs to re-run their subscriptions (a `records.resubscribe` message).
   - It looks up the user with `record.data.UserId` (capital U). The column is `userId`, so the lookup is always empty and the function returns early.
@@ -236,7 +236,7 @@
   - **B:** re-save the crew and member rows from `joinCrew`.
   - **C:** patch the SDK with patch-package.
   - Last resort: full page reload.
-- **You chose A.**
+- **I chose A.**
 
 **Fix A (workaround, all in one commented block in `src/pages/(app)/(protected)/home.tsx`)**
 - **How it works:**
@@ -251,21 +251,21 @@
   - It relies on `CrewList` being the only place that runs these two queries. The SDK shares identical queries, and only re-asks the server when the last user of one goes away. This is noted in a comment.
 - **Remove when** DeepSpace fixes `notifyTeamMembershipChange`: delete `listVersion`, the `key`, and the `onJoined` prop.
 - `npm run validate`: **passed** (5 test files, 34 tests). `eslint src tests`: clean.
-- **Confirmed live (by you, re-running the two-window check):** after joining, window B shows the crew and "2 members" without a reload.
+- **Confirmed live (by me, re-running the two-window check):** after joining, window B shows the crew and "2 members" without a reload.
 
 **Bug report (to send to DeepSpace)**
 > deepspace 0.44.2: `notifyTeamMembershipChange` never fires, so `'team'` access gained via `team_members` doesn't reach open clients until reload.
 > `server.js:4431` / `worker.js:1396` read `record.data.UserId`, but rows are keyed by column name (`userId`, which `'team'` requires), so it always returns early and no `records.resubscribe` is sent.
 > Repro: user B has `/home` open with `useQuery('crews')` (`teamField`, `read: 'team'`), a server action inserts `team_members {teamId, userId: B, status: 'active'}`, and B never receives the crew. Expected: B's tab resubscribes and receives it.
 
-**Verify yourself**
+**Checks**
 - Two-window check (summary): A creates a crew and B joins with its code; B's crew list should show the crew without a reload, and A's should change to "2 members". This check found the join-refresh issue.
 - Try a wrong code: the message says how many tries are left.
-- Signed out, open `/home`: you should see the sign-in panel, not the crew forms.
+- Signed out, open `/home`: it should show the sign-in panel, not the crew forms.
 
 ## 2026-11-24 — Step 3: Crew page, items, add/edit/delete (committed: `c6daa4c`)
 
-**What I did**
+**What Claude Code did**
 - `src/lib/dates.ts`: date-only helpers. They check "YYYY-MM-DD" is a real date (2000–2099), show it as "Mon, Dec 7", and give today's date on the viewer's own calendar. They never use `new Date("YYYY-MM-DD")`.
 - `src/lib/item-validation.ts`: one rule set for the five item fields, used by the server and the form:
   - title: 1–120 characters
@@ -277,7 +277,7 @@
 - `src/actions/membership.ts`: `isActiveMember`, shared by every crew action (step 5 will use it too).
 - `src/actions/items.ts`:
   - `addItem`: active member? → valid fields? → create.
-  - `updateItem`: item exists? → you're the author (`createdBy`)? → still an active member? → valid fields? → update. It writes only the five fields; never `crewId`, `steps` or `stepsAt`.
+  - `updateItem`: item exists? → caller is the author (`createdBy`)? → still an active member? → valid fields? → update. It writes only the five fields; never `crewId`, `steps` or `stepsAt`.
 - `src/actions/index.ts`: registers both.
 - **Schema change** (`items-schema.ts`): `update` is now `false` for member and admin, so edits **must** go through `updateItem`. Delete stays `'own'` (author only, direct from the browser). Title and course limits are now named constants shared with the form.
 - `src/components/items/ItemForm.tsx`: one form for both Add and Edit. It validates before sending and is disabled while sending.
@@ -285,7 +285,7 @@
   - live item list, soonest due first, showing who added each item
   - Add form
   - Type and Course filters
-  - Edit and Delete buttons only on your own items; Delete asks you to confirm first
+  - Edit and Delete buttons only on the viewer's own items; Delete asks for confirmation first
   - non-members (and unknown ids) see "Crew not found"
 - `/home`: crew names now link to their crew page.
 - Tests:
@@ -293,7 +293,7 @@
   - Schema tests now use the SDK's own `canUpdate`/`canDelete`.
   - Fake `tools` now records who created each row and supports `get`.
   - Playwright: two-user item test in `collab.spec.ts`; signed-out 401 for `addItem`/`updateItem` in `api.spec.ts`.
-- `npm run validate`: **passed** (8 test files, 83 tests). `eslint src tests`: clean. Playwright lists 17 tests; not run (needs the dev server and test accounts, which you run).
+- `npm run validate`: **passed** (8 test files, 83 tests). `eslint src tests`: clean. Playwright lists 17 tests; not run (needs the dev server and test accounts, which I run).
 
 **Why**
 - The schema can't check that a date is real or that hours are sensible. If authors edited directly from the browser, a bad `dueDate` could break the crunch-week totals in step 4. Routing edits through `updateItem` means every saved item passed the same checks.
@@ -302,17 +302,17 @@
 **Tradeoffs**
 - `updateItem` and `addItem` each make 2–3 database reads before writing. That's fine at study-group scale.
 - An author who leaves a crew can still *see* their old items (the SDK's `'team'` rule always lets the creator read). They can't edit them (`updateItem` checks membership), but `delete: 'own'` still lets them delete. Leaving a crew isn't possible yet, so this is a note for the optional lead step.
-- Filters only change what's shown on screen. That's safe, because the server only ever sends items you're allowed to see.
-- `src/router.ts` is generated by the router plugin and is gitignored (`.gitignore` line 12), so it's never committed. It will gain a `/crews/:id` entry the next time you run `npm run dev`. (Corrected: an earlier note here wrongly said to commit it.)
+- Filters only change what's shown on screen. That's safe, because the server only ever sends items the viewer is allowed to see.
+- `src/router.ts` is generated by the router plugin and is gitignored (`.gitignore` line 12), so it's never committed. It will gain a `/crews/:id` entry the next time I run `npm run dev`. (Corrected: an earlier note here wrongly said to commit it.)
 
-**Verify yourself**
+**Checks**
 - Two-window check (summary): both accounts open the same crew page. A adds an item; B sees it appear without a reload, with no Edit or Delete buttons on it. A edits the hours, and B sees the change live.
 - Type an impossible date or `0` hours: the form says why before sending.
-- Open `/crews/<some-other-id>`: you should see "Crew not found".
+- Open `/crews/<some-other-id>`: it should show "Crew not found".
 
 ## Playwright status (as of step 5)
 
-**None of the Playwright tests has been run.** Running them needs the dev server (which rewrites `.dev.vars`, off-limits to me) and test accounts (none on this machine). Per your instruction, I haven't written or polished any more Playwright tests since step 3; steps 4 and 5 rely on unit tests plus the manual two-window check.
+**None of the Playwright tests has been run.** Running them needs the dev server (which rewrites `.dev.vars`, off-limits to Claude Code) and test accounts (none on this machine). Per my instruction, Claude Code hasn't written or polished any more Playwright tests since step 3; steps 4 and 5 rely on unit tests plus the manual two-window check.
 
 | Spec | Test | Status |
 |---|---|---|
@@ -320,14 +320,14 @@
 | api.spec.ts | WebSocket endpoint exists (scaffold) | not run |
 | api.spec.ts | createCrew / joinCrew / addItem / updateItem refuse signed-out callers with 401 (4 tests) | not run |
 | collab.spec.ts | each browser renders its own signed-in account (scaffold) | not run |
-| collab.spec.ts | a member who joins by code sees the crew without reloading | not run (you confirmed the same behaviour by hand) |
+| collab.spec.ts | a member who joins by code sees the crew without reloading | not run (I confirmed the same behaviour by hand) |
 | collab.spec.ts | a crewmate sees a new item live and can't edit or delete it | not run |
 | collab.spec.ts | API status page, two tests (scaffold) | not run |
 | smoke.spec.ts | six scaffold smoke tests | not run (the "/home" ones may need updating, since /home now requires sign-in) |
 
 ## 2026-11-24 — Step 4: Crunch-week view (committed: `2f4c5c9`)
 
-**What I did**
+**What Claude Code did**
 - `src/lib/dates.ts`: added `addDays`, `weekStart` (that week's Monday) and `formatWeekRange` ("Dec 7–13"). They use only UTC functions on date-only text.
 - `src/lib/crunch.ts`: `buildCrunchWeeks(items, firstWeek, weekCount, memberCount)` is a plain function. It returns one entry per week (empty weeks included) with the total, hours per author, and a heavy flag, plus earlier/later/skipped totals.
   - `HEAVY_WEEK_HOURS_PER_MEMBER = 15`: a week is heavy when its total ÷ active members ≥ 15 h. The reason is in the code comment.
@@ -359,7 +359,7 @@
 - The current week is based on the viewer's own calendar date. Someone in a far-off timezone may briefly see a different "This week" around midnight.
 - If an author leaves the crew, their items still count. They appear after current members in the legend.
 
-**Verify yourself:** two-window check (summary). A opens Crunch week, then B adds items due this week. A's weekly total, B's coloured segment and, past the threshold, the Heavy marker update without a reload. Moving an item's due date moves its hours to the other week, and deleting an item removes them.
+**Checks:** two-window check (summary). A opens Crunch week, then B adds items due this week. A's weekly total, B's coloured segment and, past the threshold, the Heavy marker update without a reload. Moving an item's due date moves its hours to the other week, and deleting an item removes them.
 
 ## 2026-11-24 — Step 5: Break it down (committed: `de2f1e7`)
 
@@ -367,9 +367,9 @@
 - Endpoint `anthropic/chat-completion`, as planned.
 - The catalog's **default model is `claude-opus-5-5`** (expensive). Its description names `claude-haiku-5-5`, which we set explicitly.
 - Request fields: `model`, `max_tokens`, `system`, `messages`, `temperature`, as planned.
-- **No response schema is printed.** The docs say to make one real call to see it. I didn't, because it costs money. `extractText` reads the Anthropic Messages shape (`content: [{type:'text', text}]`) plus two fallbacks.
+- **No response schema is printed.** The docs say to make one real call to see it. Claude Code didn't, because it costs money. `extractText` reads the Anthropic Messages shape (`content: [{type:'text', text}]`) plus two fallbacks.
 
-**What I did**
+**What Claude Code did**
 - `src/lib/ai-steps.ts`:
   - `buildBreakDownRequest` uses Haiku, `max_tokens` 600, `temperature` 0.3, and a system prompt asking for JSON `{"steps": [...]}`.
   - `extractText` pulls the reply text out of the response.
@@ -386,15 +386,15 @@
   8. Reply isn't 4–6 steps → refuse and store nothing. The count stays, because we paid for the call.
   9. Store `steps` and `stepsAt` on the item.
 - **Security fix (first version, replaced by the deny-by-default guard below):** marked `anthropic` as server-only on the browser proxy.
-  - Without this, any signed-in user could call Claude straight from the browser at your expense, skipping the cap.
+  - Without this, any signed-in user could call Claude straight from the browser at my expense, skipping the cap.
   - Server actions don't use that route, so `breakItDown` still works.
-  - I also checked the scaffold's in-app AI chat routes: they aren't mounted (`inApp: false` in `worker.ts:142`), so there's no other way to reach Claude.
+  - Claude Code also checked the scaffold's in-app AI chat routes: they aren't mounted (`inApp: false` in `worker.ts:142`), so there's no other way to reach Claude.
 - Crew page, on each item:
   - **Break it down** if the item has no steps; otherwise the numbered steps and a **Redo steps** button.
   - While one breakdown runs, **every** Break it down / Redo button on the page is disabled. This also makes it harder to race the cap.
-  - Buttons are disabled when you have 0 left.
-  - "AI breakdowns left today: N of 10" is read live from your own `usage_counters` row.
-- Tests (all with a **fake AI**; no test calls the real AI, and no `RUN_PAID_TESTS` test exists because you asked for no new Playwright tests):
+  - Buttons are disabled when the user has 0 left.
+  - "AI breakdowns left today: N of 10" is read live from the user's own `usage_counters` row.
+- Tests (all with a **fake AI**; no test calls the real AI, and no `RUN_PAID_TESTS` test exists because I asked for no new Playwright tests):
   - `ai-steps.test.ts`: the request shape and model, reading the reply, and parsing (3/7 steps, bad JSON, empty steps, fences, numbering, long steps).
   - `break-down.test.ts`:
     - Steps are stored.
@@ -411,15 +411,15 @@
 - **Cap race:** reading the count and adding one are two separate steps. Two calls at exactly the same moment (two tabs) could both get under the cap. The page allows one breakdown at a time, so the worst case is a call or two over, never unlimited.
 - Any active member can Break it down or Redo any item in the crew. Each call counts against the clicker's own cap. Redo replaces the steps for everyone.
 - Editing an item keeps its old steps. Use Redo if they no longer fit.
-- The response shape is assumed, not confirmed (see the integration check above). If the first real click says "The AI sent an empty reply", that's the sign the shape differs. That case is refused, not refunded, so it uses one of your 10.
+- The response shape is assumed, not confirmed (see the integration check above). If the first real click says "The AI sent an empty reply", that's the sign the shape differs. That case is refused, not refunded, so it uses one of the user's 10.
 
-**Verify yourself:** two-window check (summary). A clicks Break it down: every Break it down button is disabled while it runs, 4–6 steps appear, and A's "left today" count drops. B sees the same steps live. B's Redo counts against B's own cap. A browser-console `fetch` to `/api/integrations/...` returns 403. Each real breakdown spends DeepSpace credits; the exact cost was not measured.
+**Checks:** two-window check (summary). A clicks Break it down: every Break it down button is disabled while it runs, 4–6 steps appear, and A's "left today" count drops. B sees the same steps live. B's Redo counts against B's own cap. A browser-console `fetch` to `/api/integrations/...` returns 403. Each real breakdown spends DeepSpace credits; the exact cost was not measured.
 
 ## 2026-11-24 — Deny-by-default browser integration proxy (committed: `de2f1e7`)
 
 **Finding**
 - The scaffold's browser proxy `/api/integrations/<name>/<endpoint>` (`src/server/http-routes.ts`) treats any integration not listed in `src/integrations.ts` as owner-billed.
-  - A **signed-out** visitor got 401, because no integration is marked `anthropic: true`.
+  - A **signed-out** visitor got 401, because no integration is marked `anonymous: true`.
   - A **signed-in** visitor was forwarded with `APP_OWNER_JWT`, so **every** catalog endpoint was callable at the owner's expense with no per-user limit: `openai/*`, `exa/*`, `gemini/*`, `email/send` (mail from `<app>@app.space`), and so on.
 - Only `anthropic` had been blocked, in the step 5 fix.
 - Nothing else reaches integrations from the browser:
@@ -427,7 +427,7 @@
   - The in-app AI chat routes aren't mounted.
   - Server actions use `tools.integration`, which never goes through this route.
 
-**What I did**
+**What Claude Code did**
 - `src/server/integration-guard.ts`: Hono middleware that answers **403 for every path under `/api/integrations/`** unless it exactly matches the allowlist. Matching ignores letter case, decodes `%2F`-style encoding and drops trailing slashes.
 - `src/integrations.ts`: added `BROWSER_INTEGRATION_ALLOWLIST = []` (empty) and removed the step 5 `serverOnly` flag and `isBrowserCallable`, which the guard replaces. `anthropic` stays `{ billing: 'developer' }`.
 - `src/server/http-routes.ts` (scaffold): mounted the guard just above the integration routes, and removed the step 5 per-integration check.
@@ -450,19 +450,19 @@
 
 ## 2026-11-24 — Bug: crew link from /home showed the 404 page (committed: `15f20ec`)
 
-**What you saw:** clicking a crew on `/home` went to `/crews/e7691209-…` and showed the app's own 404 page (`[...all].tsx`), with the dev server still running.
+**What I saw:** clicking a crew on `/home` went to `/crews/e7691209-…` and showed the app's own 404 page (`[...all].tsx`), with the dev server still running.
 
 **Diagnosis**
 - **Generated types (`src/router.ts`, gitignored):** it lists `/crews/:id` and `/crews/:id/crunch`. It was regenerated at 22:50, after the page move.
 - **Files:** `crews/[id]/index.tsx` and `crews/[id]/crunch.tsx` only. There's no leftover `crews/[id].tsx`.
-- **Routes:** I rebuilt the browser's route table with generouted's own code from the real files, and asked react-router's own `matchRoutes`. `/crews/<id>` → crew page, and `/crews/<id>/crunch` → crunch page. So the files and routes are correct.
+- **Routes:** Claude Code rebuilt the browser's route table with generouted's own code from the real files, and asked react-router's own `matchRoutes`. `/crews/<id>` → crew page, and `/crews/<id>/crunch` → crunch page. So the files and routes are correct.
 - **Cause:**
   - The browser's routes don't come from `src/router.ts`. They come from `@generouted/react-router/lazy`, which scans `src/pages` live (`import.meta.glob`).
   - Vite had **pre-bundled** that package into `node_modules/.vite/deps/` at 18:58, before any crew pages existed.
   - Vite serves pre-bundled packages with `Cache-Control: max-age=31536000,immutable` (`node_modules/vite/dist/node/chunks/node.js:20339`). The browser keeps that copy and never asks again, even on reload.
   - So the browser kept a route list from before the crew pages. Generouted's plugin does notice new pages, but only to regenerate the types file (`plugin/index.js:119–123`).
-- **Confidence:** this mechanism matches everything above. I couldn't run the dev server to watch it happen, because it rewrites `.dev.vars`.
-  - Your own check: in DevTools → Network, find `@generouted_react-router_lazy.js?v=…`. If it says "(disk cache)" or "(memory cache)", that's the stale copy.
+- **Confidence:** this mechanism matches everything above. Claude Code couldn't run the dev server to watch it happen, because it rewrites `.dev.vars`.
+  - My own check: in DevTools → Network, find `@generouted_react-router_lazy.js?v=…`. If it says "(disk cache)" or "(memory cache)", that's the stale copy.
 - **Crunch page:** `/crews/<id>/crunch` would have 404'd the same way. In the files and route table it matches correctly.
 
 **Fix (smallest)**
@@ -484,29 +484,29 @@
 
 **To pick up the fix:** stop the dev server, start it again (`npm run dev`), then reload the page once.
 
-## 2026-11-24 — Verified by you in the running app
+## 2026-11-24 — Verified by me in the running app
 
-You tested with two accounts: your normal browser window and a private window.
+I tested with two accounts: my normal browser window and a private window.
 
 **Worked**
 - Create crew, join with a code, and the crew list updating live.
-- Items: adding, the list updating live in the other window, and editing/deleting only your own items.
+- Items: adding, the list updating live in the other window, and editing/deleting only my own items.
 - Crunch week view: totals update live.
 - Break it down: clicked once, and it worked.
 - The 404 on crew links went away after the vite config fix.
 - Browser console checks against `/api/integrations/anthropic/...` and `/api/integrations/openai/...` both returned 403 **locally**.
 
 **Observation**
-- As the app owner (an admin), you see crews you're not a member of, while the other account does not. This is the admin read-all permission, by design.
+- As the app owner (an admin), I see crews I'm not a member of, while the other account does not. This is the admin read-all permission, by design.
 
 **Not tested**
 - The Playwright tests: none were run.
 - The deployed site, including the `/api/integrations/...` console checks there.
 
-## Verified by you on the deployed site
+## Verified by me on the deployed site
 
 - The console checks against `/api/integrations/anthropic/...` and `/api/integrations/openai/...` returned 403 on the live site, signed in and signed out.
-- On the live site you signed in, created a crew, added an item, and clicked Break it down once. It worked.
+- On the live site I signed in, created a crew, added an item, and clicked Break it down once. It worked.
 
 ## Appendix A: integrations info output
 
