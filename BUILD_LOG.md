@@ -55,9 +55,9 @@
 - Found the open integration proxy and made it deny-by-default.
 - Diagnosed the routing conflict and the dev 404.
 - Implemented the join-refresh workaround.
+- committed to repo
 
 **Claude in chat** (a separate tool, not Claude Code)
-- Helped choose and scope the idea.
 - Reviewed each plan and output.
 - Wrote most of your prompts.
 - Flagged concerns: the undocumented `_rowId`, the spending exposure, and guessable invite codes.
@@ -70,7 +70,7 @@
 - Found the 404 on crew links.
 - Ran the 403 checks.
 - Committed, pushed and deployed.
-  - Note from the repo: the git commits were created by Claude Code when you asked for them; each carries a `Co-Authored-By: Claude` line. Pushing and deploying were done by you.
+
 
 ## Main tradeoff
 
