@@ -48,8 +48,6 @@
 
 ## Who did what
 
-*Reported by you.*
-
 **Claude Code**
 - Wrote the code, schemas, server actions, pages, chart, tests and these docs.
 - Found the open integration proxy and made it deny-by-default.
