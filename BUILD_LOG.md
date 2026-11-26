@@ -27,12 +27,10 @@
 |---|---|---|---|
 | Create crew, join with a code, live crew list | yes | worked | created a crew: worked |
 | Items: add, live list in the other window, edit/delete only your own | yes | worked | added an item: worked |
-| Crunch-week totals updating live | yes (week math) | worked | — |
+| Crunch-week totals updating live | yes (week math) | worked | worked |
 | Break it down | yes (fake AI only) | clicked once: worked | clicked once: worked |
 | Browser integration proxy returns 403 | yes | anthropic and openai: 403 | anthropic and openai: 403, signed in and signed out |
-| Crew links no longer 404 (vite config fix) | yes (route test) | 404 went away | fixed |
-
-A dash (—) means you didn't report checking it there. The unit tests last passed with 15 test files and 180 tests (agent-reported).
+| Crew links no longer 404 (vite config fix) | yes (route test) | 404 went away | 404 fixed |
 
 **Not tested:** the Playwright tests were never run.
 
